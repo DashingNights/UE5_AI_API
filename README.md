@@ -74,9 +74,9 @@ This section provides a comprehensive reference for all available API endpoints.
 ### NPC Endpoints
 - `POST /npc` - Initialize a single NPC
 - `POST /npc/initialize` - Initialize multiple NPCs (batch)
-- `POST /npc/:npcId/chat` - Chat with an NPC
-- `GET /npc/:npcId/history` - Get NPC conversation history
-- `DELETE /npc/:npcId/history` - Clear NPC conversation history
+- `POST /npc/:npcIdOrName/chat` - Chat with an NPC (by ID or name)
+- `GET /npc/:npcIdOrName/history` - Get NPC conversation history (by ID or name)
+- `DELETE /npc/:npcIdOrName/history` - Clear NPC conversation history (by ID or name)
 - `GET /npc/summary` - Get summary of all NPCs
 - `GET /npc/find` - Find NPC by name
 - `GET /npc/relationship` - Get relationship between two NPCs
@@ -284,10 +284,10 @@ Initializes multiple NPCs at once and returns their unique IDs. This method is a
 
 Sends a message to an NPC and gets their response. The conversation history is automatically maintained between requests.
 
-**Endpoint:** `POST /npc/:npcId/chat`
+**Endpoint:** `POST /npc/:npcIdOrName/chat`
 
 **URL Parameters:**
-- `npcId` - The unique ID of the NPC to chat with
+- `npcIdOrName` - Either the unique ID or the name of the NPC to chat with
 
 **Request Body:**
 ```json
@@ -346,10 +346,10 @@ Sends a message to an NPC and gets their response. The conversation history is a
 
 Retrieves the conversation history for a specific NPC. You can limit the number of messages returned.
 
-**Endpoint:** `GET /npc/:npcId/history`
+**Endpoint:** `GET /npc/:npcIdOrName/history`
 
 **URL Parameters:**
-- `npcId` - The unique ID of the NPC
+- `npcIdOrName` - Either the unique ID or the name of the NPC
 
 **Query Parameters:**
 - `limit` (optional) - Maximum number of messages to return (most recent first)
@@ -359,6 +359,7 @@ Retrieves the conversation history for a specific NPC. You can limit the number 
 {
   "status": "success",
   "npc_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+  "npc_name": "Innkeeper",
   "history": [
     {
       "role": "player",
@@ -388,16 +389,16 @@ Retrieves the conversation history for a specific NPC. You can limit the number 
 
 Clears the conversation history for a specific NPC. Useful for resetting conversations.
 
-**Endpoint:** `DELETE /npc/:npcId/history`
+**Endpoint:** `DELETE /npc/:npcIdOrName/history`
 
 **URL Parameters:**
-- `npcId` - The unique ID of the NPC
+- `npcIdOrName` - Either the unique ID or the name of the NPC
 
 **Response:**
 ```json
 {
   "status": "success",
-  "message": "Cleared conversation history for NPC 6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+  "message": "Cleared conversation history for NPC Innkeeper (ID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
 }
 ```
 
@@ -464,14 +465,16 @@ Retrieves the relationship between two NPCs.
 **Endpoint:** `GET /npc/relationship`
 
 **Query Parameters:**
-- `npc1` - The ID of the first NPC
-- `npc2` - The ID of the second NPC
+- `npc1` - Either the ID or name of the first NPC
+- `npc2` - Either the ID or name of the second NPC
 
 **Response:**
 ```json
 {
   "status": "success",
   "relationship": {
+    "npc1_id": "550e8400-e29b-41d4-a716-446655440000",
+    "npc2_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
     "npc1_name": "Blacksmith",
     "npc2_name": "Innkeeper",
     "npc1_to_npc2": "Friends",

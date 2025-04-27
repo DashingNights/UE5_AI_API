@@ -173,17 +173,41 @@ function findNpcByName(name) {
 }
 
 /**
- * Get relationship between two NPCs
- * @param {string} npcId1 - First NPC ID
- * @param {string} npcId2 - Second NPC ID
+ * Get relationship between two NPCs (supports both IDs and names)
+ * @param {string} npcId1OrName - First NPC ID or name
+ * @param {string} npcId2OrName - Second NPC ID or name
  * @returns {Object} - Relationship information
  */
-function getNpcRelationship(npcId1, npcId2) {
-  const npc1 = getNpcMetadata(npcId1);
-  const npc2 = getNpcMetadata(npcId2);
+function getNpcRelationship(npcId1OrName, npcId2OrName) {
+  // Try to get NPCs by ID first
+  let npc1 = getNpcMetadata(npcId1OrName);
+  let npc2 = getNpcMetadata(npcId2OrName);
 
+  // If not found by ID, try by name
+  if (!npc1) {
+    const npcByName = findNpcByName(npcId1OrName);
+    if (npcByName) {
+      npc1 = getNpcMetadata(npcByName.id);
+    }
+  }
+
+  if (!npc2) {
+    const npcByName = findNpcByName(npcId2OrName);
+    if (npcByName) {
+      npc2 = getNpcMetadata(npcByName.id);
+    }
+  }
+
+  // If either NPC is still not found, return error
   if (!npc1 || !npc2) {
-    return { status: "unknown", error: "One or both NPCs not found" };
+    return {
+      status: "unknown",
+      error: "One or both NPCs not found",
+      npc1_found: !!npc1,
+      npc2_found: !!npc2,
+      npc1_identifier: npcId1OrName,
+      npc2_identifier: npcId2OrName
+    };
   }
 
   // Check if NPC1 has a relationship with NPC2
@@ -193,6 +217,8 @@ function getNpcRelationship(npcId1, npcId2) {
   const relationFromNpc2 = npc2.relationships && npc2.relationships[npc1.name];
 
   return {
+    npc1_id: npc1.id || npcId1OrName,
+    npc2_id: npc2.id || npcId2OrName,
     npc1_name: npc1.name,
     npc2_name: npc2.name,
     npc1_to_npc2: relationFromNpc1 || "none",
