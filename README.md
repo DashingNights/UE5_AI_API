@@ -171,6 +171,13 @@ Request body:
   "location": "Village Forge",
   "currentState": "Working on a sword",
   "faction": "Villagers",
+  "player_relationship": {
+    "status": "friendly",
+    "affinity": 65,
+    "trust": 70,
+    "respect": 80,
+    "history": ["Player helped fix the forge", "Player delivered rare metals"]
+  },
   "relationships": {
     "Mayor": "Respectful",
     "Innkeeper": "Friends"
@@ -297,10 +304,14 @@ Response:
       "mood": "cheerful",
       "location": "The Golden Goose Inn",
       "memory": "Player asked about gossip",
-      "relationships": {
-        "player": "neutral"
-      },
-      "currentState": "Serving drinks"
+      "currentState": "Serving drinks",
+      "player_relationship": {
+        "status": "friendly",
+        "affinity": 55,
+        "trust": 60,
+        "respect": 50,
+        "history": ["Player showed interest in local gossip"]
+      }
     }
   },
   "raw_content": "Original AI response string"
@@ -386,6 +397,88 @@ Response:
       "messageCount": 8
     }
   ]
+}
+```
+
+#### Debug: Log All NPC Data
+
+Triggers logging of all NPC data to the log file for debugging purposes.
+
+```
+GET /npc/debug/log
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "All NPC data has been written to the log file",
+  "timestamp": "2023-10-15T14:30:45.123Z",
+  "request_id": "1621234567890"
+}
+```
+
+This endpoint will write detailed information about all NPCs to the log file, including:
+- Basic metadata (name, description, personality, etc.)
+- Relationships
+- Conversation counts
+- Last conversation
+- Full NPC data (at DEBUG log level)
+
+Additionally, NPC data is automatically logged:
+- When an NPC is initialized
+- After each chat interaction
+- Periodically every 5 minutes (configurable)
+
+#### Find NPC by Name
+
+Finds an NPC by their name.
+
+```
+GET /npc/find?name=Blacksmith
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "npc": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Blacksmith",
+    "description": "A burly blacksmith who crafts the finest weapons",
+    "personality": "Gruff but kind-hearted",
+    "location": "Village Forge",
+    "player_relationship": {
+      "status": "friendly",
+      "affinity": 65,
+      "trust": 70,
+      "respect": 80,
+      "history": ["Player helped fix the forge", "Player delivered rare metals"]
+    }
+  }
+}
+```
+
+#### Get NPC Relationship
+
+Retrieves the relationship between two NPCs.
+
+```
+GET /npc/relationship?npc1=550e8400-e29b-41d4-a716-446655440000&npc2=6ba7b810-9dad-11d1-80b4-00c04fd430c8
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "relationship": {
+    "npc1_name": "Blacksmith",
+    "npc2_name": "Innkeeper",
+    "npc1_to_npc2": "Friends",
+    "npc2_to_npc1": "Friends",
+    "is_mutual": true,
+    "is_conflicting": false
+  }
 }
 ```
 

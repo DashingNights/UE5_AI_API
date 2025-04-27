@@ -33,6 +33,10 @@ router.post('/', (req, res) => {
     const npcId = contextManager.initializeNpc(npcData);
 
     logger.info(`Successfully initialized NPC: ${npcData.name} with ID: ${npcId}`, requestId);
+
+    // Log all NPC data after initialization for debugging
+    contextManager.logAllNpcData(requestId);
+
     logger.sectionEnd();
 
     return res.json({
@@ -155,6 +159,92 @@ router.get('/summary', (req, res) => {
 });
 
 /**
+ * Debug endpoint to log all NPC data
+ * GET /npc/debug/log
+ */
+router.get('/debug/log', (req, res) => {
+  const requestId = Date.now().toString();
+
+  logger.section('DEBUG REQUEST', requestId);
+  logger.info('Logging all NPC data to log file', requestId);
+
+  // Log all NPC data
+  contextManager.logAllNpcData(requestId);
+
+  // Also trigger a periodic log
+  const currentTime = new Date().toISOString();
+  logger.info(`Debug log triggered at ${currentTime}`, requestId);
+  logger.sectionEnd();
+
+  return res.json({
+    status: 'success',
+    message: 'All NPC data has been written to the log file',
+    timestamp: currentTime,
+    request_id: requestId
+  });
+});
+
+/**
+ * Get relationship between two NPCs
+ * GET /npc/relationship?npc1=:npcId1&npc2=:npcId2
+ */
+router.get('/relationship', (req, res) => {
+  const { npc1, npc2 } = req.query;
+
+  if (!npc1 || !npc2) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Both npc1 and npc2 parameters are required'
+    });
+  }
+
+  // Get relationship information
+  const relationship = contextManager.getNpcRelationship(npc1, npc2);
+
+  if (relationship.error) {
+    return res.status(404).json({
+      status: 'error',
+      message: relationship.error
+    });
+  }
+
+  return res.json({
+    status: 'success',
+    relationship
+  });
+});
+
+/**
+ * Find NPC by name
+ * GET /npc/find?name=:name
+ */
+router.get('/find', (req, res) => {
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Name parameter is required'
+    });
+  }
+
+  // Find NPC by name
+  const npc = contextManager.findNpcByName(name);
+
+  if (!npc) {
+    return res.status(404).json({
+      status: 'error',
+      message: `No NPC found with name: ${name}`
+    });
+  }
+
+  return res.json({
+    status: 'success',
+    npc
+  });
+});
+
+/**
  * Send message to NPC
  * POST /npc/:npcId/chat
  */
@@ -216,6 +306,18 @@ ${npcMetadata.personality ? `Personality: ${npcMetadata.personality}` : ''}
 ${npcMetadata.location ? `Current location: ${npcMetadata.location}` : ''}
 ${npcMetadata.currentState ? `Current state: ${npcMetadata.currentState}` : ''}
 
+${npcMetadata.player_relationship ? `Your relationship with the player:
+- Status: ${npcMetadata.player_relationship.status}
+- Affinity: ${npcMetadata.player_relationship.affinity}/100
+- Trust: ${npcMetadata.player_relationship.trust}/100
+- Respect: ${npcMetadata.player_relationship.respect}/100
+` : ''}
+
+${npcMetadata.relationships && Object.keys(npcMetadata.relationships).length > 0 ?
+`Your relationships with other NPCs:
+${Object.entries(npcMetadata.relationships).map(([name, status]) => `- ${name}: ${status}`).join('\n')}
+` : ''}
+
 Your responses must be in valid JSON format with the following structure:
 {
   "reply": "Your in-character response here as ${npcMetadata.name}",
@@ -227,12 +329,20 @@ Your responses must be in valid JSON format with the following structure:
   "metadata": {
     "mood": "character's current mood",
     "location": "character's current location",
-    "memory": "Important things to remember about this conversation"
+    "memory": "Important things to remember about this conversation",
+    "player_relationship": {
+      "status": "updated relationship status (friendly, neutral, hostile, etc.)",
+      "affinity": 50,
+      "trust": 50,
+      "respect": 50,
+      "history": ["Optional new significant interaction to remember"]
+    }
   }
 }
 
 The "reply" and "playerResponseChoices" fields are required.
 The "metadata" field is optional but recommended for tracking game state.
+The "player_relationship" field should reflect how this conversation affects your relationship with the player.
 Ensure your response is valid JSON that can be parsed by JSON.parse().
 `;
 
@@ -272,6 +382,11 @@ Ensure your response is valid JSON that can be parsed by JSON.parse().
     }
 
     logger.info(`NPC response generated in ${responseTime}ms`, requestId);
+
+    // Log NPC data after chat for debugging
+    logger.info(`Logging NPC data after chat with ${npcId}`, requestId);
+    contextManager.logAllNpcData(requestId);
+
     logger.sectionEnd();
 
     return res.json(formattedResponse);
