@@ -99,48 +99,83 @@ router.post('/initialize', (req, res) => {
 });
 
 /**
- * Get NPC conversation history
- * GET /npc/:npcId/history
+ * Get NPC conversation history (supports both UUID and name)
+ * GET /npc/:npcIdOrName/history
  */
-router.get('/:npcId/history', (req, res) => {
-  const { npcId } = req.params;
+router.get('/:npcIdOrName/history', (req, res) => {
+  const npcIdOrName = req.params.npcIdOrName;
   const limit = parseInt(req.query.limit) || 0;
 
-  const history = contextManager.getConversationHistory(npcId, limit);
+  // First, try to get history by ID
+  let history = contextManager.getConversationHistory(npcIdOrName, limit);
+  let actualNpcId = npcIdOrName;
 
+  // If not found by ID, try to find by name
+  if (history === null) {
+    const npcByName = contextManager.findNpcByName(npcIdOrName);
+
+    if (npcByName) {
+      actualNpcId = npcByName.id;
+      history = contextManager.getConversationHistory(actualNpcId, limit);
+    }
+  }
+
+  // If still not found, return error
   if (history === null) {
     return res.status(404).json({
       status: 'error',
-      message: `NPC with ID ${npcId} not found`
+      message: `NPC with identifier ${npcIdOrName} not found`
     });
   }
 
   return res.json({
     status: 'success',
-    npc_id: npcId,
+    npc_id: actualNpcId,
+    npc_name: contextManager.getNpcMetadata(actualNpcId).name,
     history
   });
 });
 
 /**
- * Clear NPC conversation history
- * DELETE /npc/:npcId/history
+ * Clear NPC conversation history (supports both UUID and name)
+ * DELETE /npc/:npcIdOrName/history
  */
-router.delete('/:npcId/history', (req, res) => {
-  const { npcId } = req.params;
+router.delete('/:npcIdOrName/history', (req, res) => {
+  const npcIdOrName = req.params.npcIdOrName;
 
-  const success = contextManager.clearConversationHistory(npcId);
+  // First, try to clear history by ID
+  let success = contextManager.clearConversationHistory(npcIdOrName);
+  let actualNpcId = npcIdOrName;
+  let npcName = npcIdOrName;
 
+  // If not found by ID, try to find by name
+  if (!success) {
+    const npcByName = contextManager.findNpcByName(npcIdOrName);
+
+    if (npcByName) {
+      actualNpcId = npcByName.id;
+      npcName = npcByName.name;
+      success = contextManager.clearConversationHistory(actualNpcId);
+    }
+  } else {
+    // If found by ID, get the name
+    const npcMetadata = contextManager.getNpcMetadata(npcIdOrName);
+    if (npcMetadata) {
+      npcName = npcMetadata.name;
+    }
+  }
+
+  // If still not found, return error
   if (!success) {
     return res.status(404).json({
       status: 'error',
-      message: `NPC with ID ${npcId} not found`
+      message: `NPC with identifier ${npcIdOrName} not found`
     });
   }
 
   return res.json({
     status: 'success',
-    message: `Cleared conversation history for NPC ${npcId}`
+    message: `Cleared conversation history for NPC ${npcName} (ID: ${actualNpcId})`
   });
 });
 
@@ -245,27 +280,42 @@ router.get('/find', (req, res) => {
 });
 
 /**
- * Send message to NPC
- * POST /npc/:npcId/chat
+ * Send message to NPC (supports both UUID and name)
+ * POST /npc/:npcIdOrName/chat
  */
-router.post('/:npcId/chat', async (req, res) => {
+router.post('/:npcIdOrName/chat', async (req, res) => {
   const requestId = Date.now().toString();
-  const { npcId } = req.params;
+  const npcIdOrName = req.params.npcIdOrName;
   const { message, options = {} } = req.body;
 
   logger.section('NPC CHAT REQUEST', requestId);
-  logger.info(`NPC ID: ${npcId}`, requestId);
+  logger.info(`NPC Identifier: ${npcIdOrName}`, requestId);
   logger.info(`Message: ${message}`, requestId);
 
-  // Check if NPC exists
-  const npcMetadata = contextManager.getNpcMetadata(npcId);
+  // First, try to get NPC by ID
+  let npcMetadata = contextManager.getNpcMetadata(npcIdOrName);
+  let actualNpcId = npcIdOrName;
+
+  // If not found by ID, try to find by name
   if (!npcMetadata) {
-    logger.error(`NPC with ID ${npcId} not found`, requestId);
+    logger.info(`NPC not found by ID, trying to find by name: ${npcIdOrName}`, requestId);
+    const npcByName = contextManager.findNpcByName(npcIdOrName);
+
+    if (npcByName) {
+      actualNpcId = npcByName.id;
+      npcMetadata = contextManager.getNpcMetadata(actualNpcId);
+      logger.info(`Found NPC by name. Using ID: ${actualNpcId}`, requestId);
+    }
+  }
+
+  // If still not found, return error
+  if (!npcMetadata) {
+    logger.error(`NPC with identifier ${npcIdOrName} not found`, requestId);
     logger.sectionEnd();
 
     return res.status(404).json({
       status: 'error',
-      message: `NPC with ID ${npcId} not found`
+      message: `NPC with identifier ${npcIdOrName} not found`
     });
   }
 
@@ -281,11 +331,11 @@ router.post('/:npcId/chat', async (req, res) => {
 
   try {
     // Add player message to history
-    contextManager.addMessage(npcId, 'player', message);
+    contextManager.addMessage(actualNpcId, 'player', message);
 
     // Get conversation history
     const historyLimit = options.history_limit || 10;
-    const formattedHistory = contextManager.formatHistoryForOpenAI(npcId, historyLimit);
+    const formattedHistory = contextManager.formatHistoryForOpenAI(actualNpcId, historyLimit);
 
     // Set default options for NPC chat
     const chatOptions = {
@@ -374,17 +424,17 @@ Ensure your response is valid JSON that can be parsed by JSON.parse().
 
       // Update NPC metadata if provided
       if (formattedResponse.data.metadata) {
-        contextManager.updateNpcMetadata(npcId, formattedResponse.data.metadata);
+        contextManager.updateNpcMetadata(actualNpcId, formattedResponse.data.metadata);
       }
 
       // Add NPC response to history
-      contextManager.addMessage(npcId, 'npc', npcReply);
+      contextManager.addMessage(actualNpcId, 'npc', npcReply);
     }
 
     logger.info(`NPC response generated in ${responseTime}ms`, requestId);
 
     // Log NPC data after chat for debugging
-    logger.info(`Logging NPC data after chat with ${npcId}`, requestId);
+    logger.info(`Logging NPC data after chat with ${npcIdOrName} (ID: ${actualNpcId})`, requestId);
     contextManager.logAllNpcData(requestId);
 
     logger.sectionEnd();
