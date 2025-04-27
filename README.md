@@ -61,15 +61,42 @@ The application is organized into the following modules:
 
 ## API Endpoints
 
+This section provides a comprehensive reference for all available API endpoints.
+
+## Quick Reference
+
+### Health Endpoints
+- `GET /health` - Check if the API is running
+
+### AI Endpoints
+- `POST /ai` - Send a message to the AI
+
+### NPC Endpoints
+- `POST /npc` - Initialize a single NPC
+- `POST /npc/initialize` - Initialize multiple NPCs (batch)
+- `POST /npc/:npcId/chat` - Chat with an NPC
+- `GET /npc/:npcId/history` - Get NPC conversation history
+- `DELETE /npc/:npcId/history` - Clear NPC conversation history
+- `GET /npc/summary` - Get summary of all NPCs
+- `GET /npc/find` - Find NPC by name
+- `GET /npc/relationship` - Get relationship between two NPCs
+- `GET /npc/debug/log` - Log all NPC data (debug)
+
+### Admin Endpoints
+- `POST /admin/command` - Process game admin command
+- `GET /admin/variables` - Get all game variables
+- `POST /admin/variables` - Set game variables
+- `DELETE /admin/variables/:key` - Delete a game variable
+
+## Detailed API Reference
+
 ### Health Check
 
 Simple endpoint to verify the API is running.
 
-```
-GET /health
-```
+**Endpoint:** `GET /health`
 
-Response:
+**Response:**
 ```json
 {
   "status": "ok"
@@ -80,11 +107,9 @@ Response:
 
 General-purpose AI completion endpoint for standard AI interactions.
 
-```
-POST /ai
-```
+**Endpoint:** `POST /ai`
 
-Request body:
+**Request Body:**
 ```json
 {
   "message": "Your message to the AI",
@@ -99,7 +124,7 @@ Request body:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "request_id": "1621234567890",
@@ -124,7 +149,7 @@ Response:
 
 #### Example: Simple Question
 
-Request:
+**Request Body:**
 ```json
 {
   "message": "When is Christmas?",
@@ -134,7 +159,7 @@ Request:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "request_id": "1621234567890",
@@ -153,15 +178,15 @@ Response:
 
 ### NPC Management
 
+This section covers all endpoints related to NPC management, including initialization, conversation, and relationship tracking.
+
 #### Initialize a Single NPC
 
 Initializes a single NPC and returns its unique ID. This is the recommended approach for initializing NPCs directly from individual actor instances in your game.
 
-```
-POST /npc
-```
+**Endpoint:** `POST /npc`
 
-Request body:
+**Request Body:**
 ```json
 {
   "name": "Blacksmith",
@@ -189,7 +214,7 @@ Request body:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "status": "success",
@@ -203,11 +228,9 @@ Response:
 
 Initializes multiple NPCs at once and returns their unique IDs. This method is available for backward compatibility or for initializing groups of NPCs.
 
-```
-POST /npc/initialize
-```
+**Endpoint:** `POST /npc/initialize`
 
-Request body:
+**Request Body:**
 ```json
 {
   "npcs": [
@@ -245,7 +268,7 @@ Request body:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "status": "success",
@@ -261,11 +284,12 @@ Response:
 
 Sends a message to an NPC and gets their response. The conversation history is automatically maintained between requests.
 
-```
-POST /npc/:npcId/chat
-```
+**Endpoint:** `POST /npc/:npcId/chat`
 
-Request body:
+**URL Parameters:**
+- `npcId` - The unique ID of the NPC to chat with
+
+**Request Body:**
 ```json
 {
   "message": "Hello, do you have any interesting gossip?",
@@ -280,7 +304,7 @@ Request body:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "request_id": "1621234567890",
@@ -322,11 +346,15 @@ Response:
 
 Retrieves the conversation history for a specific NPC. You can limit the number of messages returned.
 
-```
-GET /npc/:npcId/history?limit=5
-```
+**Endpoint:** `GET /npc/:npcId/history`
 
-Response:
+**URL Parameters:**
+- `npcId` - The unique ID of the NPC
+
+**Query Parameters:**
+- `limit` (optional) - Maximum number of messages to return (most recent first)
+
+**Response:**
 ```json
 {
   "status": "success",
@@ -360,11 +388,12 @@ Response:
 
 Clears the conversation history for a specific NPC. Useful for resetting conversations.
 
-```
-DELETE /npc/:npcId/history
-```
+**Endpoint:** `DELETE /npc/:npcId/history`
 
-Response:
+**URL Parameters:**
+- `npcId` - The unique ID of the NPC
+
+**Response:**
 ```json
 {
   "status": "success",
@@ -376,11 +405,9 @@ Response:
 
 Retrieves a summary of all initialized NPCs.
 
-```
-GET /npc/summary
-```
+**Endpoint:** `GET /npc/summary`
 
-Response:
+**Response:**
 ```json
 {
   "status": "success",
@@ -400,45 +427,16 @@ Response:
 }
 ```
 
-#### Debug: Log All NPC Data
-
-Triggers logging of all NPC data to the log file for debugging purposes.
-
-```
-GET /npc/debug/log
-```
-
-Response:
-```json
-{
-  "status": "success",
-  "message": "All NPC data has been written to the log file",
-  "timestamp": "2023-10-15T14:30:45.123Z",
-  "request_id": "1621234567890"
-}
-```
-
-This endpoint will write detailed information about all NPCs to the log file, including:
-- Basic metadata (name, description, personality, etc.)
-- Relationships
-- Conversation counts
-- Last conversation
-- Full NPC data (at DEBUG log level)
-
-Additionally, NPC data is automatically logged:
-- When an NPC is initialized
-- After each chat interaction
-- Periodically every 5 minutes (configurable)
-
 #### Find NPC by Name
 
 Finds an NPC by their name.
 
-```
-GET /npc/find?name=Blacksmith
-```
+**Endpoint:** `GET /npc/find`
 
-Response:
+**Query Parameters:**
+- `name` - The name of the NPC to find (case-insensitive)
+
+**Response:**
 ```json
 {
   "status": "success",
@@ -463,11 +461,13 @@ Response:
 
 Retrieves the relationship between two NPCs.
 
-```
-GET /npc/relationship?npc1=550e8400-e29b-41d4-a716-446655440000&npc2=6ba7b810-9dad-11d1-80b4-00c04fd430c8
-```
+**Endpoint:** `GET /npc/relationship`
 
-Response:
+**Query Parameters:**
+- `npc1` - The ID of the first NPC
+- `npc2` - The ID of the second NPC
+
+**Response:**
 ```json
 {
   "status": "success",
@@ -482,6 +482,30 @@ Response:
 }
 ```
 
+#### Debug: Log All NPC Data
+
+Triggers logging of all NPC data to the log file for debugging purposes.
+
+**Endpoint:** `GET /npc/debug/log`
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "All NPC data has been written to the log file",
+  "timestamp": "2023-10-15T14:30:45.123Z",
+  "request_id": "1621234567890"
+}
+```
+
+This endpoint will write detailed information about all NPCs to the log file, including:
+- Basic metadata (name, description, personality, etc.)
+- Player relationship data
+- NPC-to-NPC relationships
+- Conversation counts
+- Last conversation
+- Full NPC data (at DEBUG log level)
+
 ### Game Administrator
 
 The Game Administrator is an emotionless system that manages game variables and state. It uses the `gameAdmin` prompt which produces structured, factual responses without character roleplay.
@@ -490,11 +514,9 @@ The Game Administrator is an emotionless system that manages game variables and 
 
 Sends a command to the game administrator to manage game variables and state.
 
-```
-POST /admin/command
-```
+**Endpoint:** `POST /admin/command`
 
-Request body:
+**Request Body:**
 ```json
 {
   "command": "Set player health to 80 and apply poison effect for 30 seconds",
@@ -506,7 +528,7 @@ Request body:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "request_id": "1621234567890",
@@ -547,11 +569,9 @@ Response:
 
 Retrieves all current game variables.
 
-```
-GET /admin/variables
-```
+**Endpoint:** `GET /admin/variables`
 
-Response:
+**Response:**
 ```json
 {
   "status": "success",
@@ -576,11 +596,9 @@ Response:
 
 Sets one or more game variables.
 
-```
-POST /admin/variables
-```
+**Endpoint:** `POST /admin/variables`
 
-Request body:
+**Request Body:**
 ```json
 {
   "variables": {
@@ -595,7 +613,7 @@ Request body:
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "status": "success",
@@ -621,11 +639,12 @@ Response:
 
 Deletes a specific game variable.
 
-```
-DELETE /admin/variables/:key
-```
+**Endpoint:** `DELETE /admin/variables/:key`
 
-Response:
+**URL Parameters:**
+- `key` - The name of the variable to delete
+
+**Response:**
 ```json
 {
   "status": "success",
