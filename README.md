@@ -22,13 +22,16 @@ The application is organized into the following modules:
 ├── app.js                   # Express app setup
 ├── routes/                  # API routes
 │   ├── aiRoutes.js          # AI endpoints
-│   └── healthRoutes.js      # Health check endpoints
+│   ├── healthRoutes.js      # Health check endpoints
+│   ├── npcRoutes.js         # NPC conversation endpoints
+│   └── adminRoutes.js       # Game administrator endpoints
 ├── services/                # Business logic
 │   └── aiService.js         # OpenAI API interaction
 ├── utils/                   # Utility modules
 │   ├── logger.js            # Logging utility
 │   ├── promptManager.js     # Prompt management
-│   └── responseFormatter.js # Response formatting
+│   ├── responseFormatter.js # Response formatting
+│   └── contextManager.js    # Conversation context management
 └── prompts/                 # System prompts
     ├── defaultBehaviour.txt # Default system prompt
     └── ...                  # Other prompt templates
@@ -60,13 +63,22 @@ The application is organized into the following modules:
 
 ### Health Check
 
+Simple endpoint to verify the API is running.
+
 ```
 GET /health
 ```
 
-Returns a simple status check to verify the API is running.
+Response:
+```json
+{
+  "status": "ok"
+}
+```
 
 ### AI Completion
+
+General-purpose AI completion endpoint for standard AI interactions.
 
 ```
 POST /ai
@@ -82,7 +94,7 @@ Request body:
     "max_tokens": 1000,
     "stream": false,
     "response_format": "json",
-    "prompt_name": "defaultBehaviour"
+    "prompt_name": "jsonResponse"
   }
 }
 ```
@@ -110,13 +122,397 @@ Response:
 }
 ```
 
+#### Example: Simple Question
+
+Request:
+```json
+{
+  "message": "When is Christmas?",
+  "options": {
+    "model": "gpt-4o-mini"
+  }
+}
+```
+
+Response:
+```json
+{
+  "request_id": "1621234567890",
+  "status": "success",
+  "response_time_ms": 234,
+  "model": "gpt-4o-mini",
+  "data": {
+    "message": "Christmas is celebrated on December 25th each year.",
+    "details": {
+      "date": "December 25",
+      "type": "religious and cultural holiday"
+    }
+  }
+}
+```
+
+### NPC Management
+
+#### Initialize NPCs
+
+Initializes multiple NPCs at once and returns their unique IDs. This should be called when your game starts or when new NPCs are introduced.
+
+```
+POST /npc/initialize
+```
+
+Request body:
+```json
+{
+  "npcs": [
+    {
+      "name": "Blacksmith",
+      "description": "A burly blacksmith who crafts the finest weapons",
+      "backstory": "Born in the northern mountains, learned smithing from his father",
+      "personality": "Gruff but kind-hearted",
+      "location": "Village Forge",
+      "currentState": "Working on a sword",
+      "faction": "Villagers",
+      "relationships": {
+        "Mayor": "Respectful",
+        "Innkeeper": "Friends"
+      },
+      "inventory": ["Hammer", "Tongs", "Unfinished Sword"],
+      "skills": ["Smithing", "Metallurgy", "Haggling"]
+    },
+    {
+      "name": "Innkeeper",
+      "description": "A cheerful innkeeper who knows all the local gossip",
+      "backstory": "Inherited the inn from her parents",
+      "personality": "Friendly and talkative",
+      "location": "The Golden Goose Inn",
+      "currentState": "Serving drinks",
+      "faction": "Villagers",
+      "relationships": {
+        "Mayor": "Distrustful",
+        "Blacksmith": "Friends"
+      },
+      "inventory": ["Mug", "Apron", "Keys"],
+      "skills": ["Brewing", "Cooking", "Gossip"]
+    }
+  ]
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Initialized 2 NPCs",
+  "npc_ids": {
+    "Blacksmith": "550e8400-e29b-41d4-a716-446655440000",
+    "Innkeeper": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+  }
+}
+```
+
+#### Chat with NPC
+
+Sends a message to an NPC and gets their response. The conversation history is automatically maintained between requests.
+
+```
+POST /npc/:npcId/chat
+```
+
+Request body:
+```json
+{
+  "message": "Hello, do you have any interesting gossip?",
+  "options": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+    "history_limit": 10,
+    "prompt_name": "gameCharacter",
+    "stream": false
+  }
+}
+```
+
+Response:
+```json
+{
+  "request_id": "1621234567890",
+  "status": "success",
+  "response_time_ms": 1234,
+  "model": "gpt-4o-mini",
+  "usage": {
+    "prompt_tokens": 123,
+    "completion_tokens": 456,
+    "total_tokens": 579
+  },
+  "finish_reason": "stop",
+  "data": {
+    "reply": "Well met, traveler! Indeed I do! They say the old wizard on the hill has been acting strange lately. Some folks have seen blue lights coming from his tower at night. And between you and me, the mayor's daughter has been sneaking out to meet someone in the woods.",
+    "playerResponseChoices": {
+      "1": "Tell me more about the wizard.",
+      "2": "What's this about the mayor's daughter?",
+      "3": "Any other news around town?"
+    },
+    "metadata": {
+      "mood": "cheerful",
+      "location": "The Golden Goose Inn",
+      "memory": "Player asked about gossip",
+      "relationships": {
+        "player": "neutral"
+      },
+      "currentState": "Serving drinks"
+    }
+  },
+  "raw_content": "Original AI response string"
+}
+```
+
+#### Get NPC Conversation History
+
+Retrieves the conversation history for a specific NPC. You can limit the number of messages returned.
+
+```
+GET /npc/:npcId/history?limit=5
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "npc_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+  "history": [
+    {
+      "role": "player",
+      "content": "Hello, do you have any interesting gossip?",
+      "timestamp": "2023-10-15T14:23:45.123Z"
+    },
+    {
+      "role": "npc",
+      "content": "Well met, traveler! Indeed I do! They say the old wizard on the hill has been acting strange lately...",
+      "timestamp": "2023-10-15T14:23:47.456Z"
+    },
+    {
+      "role": "player",
+      "content": "Tell me more about the wizard.",
+      "timestamp": "2023-10-15T14:24:10.789Z"
+    },
+    {
+      "role": "npc",
+      "content": "Ah, old Magister Thorne! He's lived in that tower for decades...",
+      "timestamp": "2023-10-15T14:24:12.345Z"
+    }
+  ]
+}
+```
+
+#### Clear NPC Conversation History
+
+Clears the conversation history for a specific NPC. Useful for resetting conversations.
+
+```
+DELETE /npc/:npcId/history
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Cleared conversation history for NPC 6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+}
+```
+
+#### Get All NPCs Summary
+
+Retrieves a summary of all initialized NPCs.
+
+```
+GET /npc/summary
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "count": 2,
+  "npcs": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Blacksmith",
+      "messageCount": 12
+    },
+    {
+      "id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Innkeeper",
+      "messageCount": 8
+    }
+  ]
+}
+```
+
+### Game Administrator
+
+The Game Administrator is an emotionless system that manages game variables and state. It uses the `gameAdmin` prompt which produces structured, factual responses without character roleplay.
+
+#### Process Admin Command
+
+Sends a command to the game administrator to manage game variables and state.
+
+```
+POST /admin/command
+```
+
+Request body:
+```json
+{
+  "command": "Set player health to 80 and apply poison effect for 30 seconds",
+  "options": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.3,
+    "max_tokens": 1000
+  }
+}
+```
+
+Response:
+```json
+{
+  "request_id": "1621234567890",
+  "status": "success",
+  "response_time_ms": 234,
+  "model": "gpt-4o-mini",
+  "usage": {
+    "prompt_tokens": 89,
+    "completion_tokens": 156,
+    "total_tokens": 245
+  },
+  "finish_reason": "stop",
+  "data": {
+    "message": "Player health set to 80. Poison effect applied for 30 seconds.",
+    "status": "success",
+    "variables": {
+      "player_health": 80,
+      "poison_effect_duration": 30
+    },
+    "actions": [
+      {
+        "type": "set_health",
+        "target": "player",
+        "value": 80
+      },
+      {
+        "type": "apply_effect",
+        "target": "player",
+        "value": "poison:30"
+      }
+    ]
+  },
+  "raw_content": "Original AI response string"
+}
+```
+
+#### Get Game Variables
+
+Retrieves all current game variables.
+
+```
+GET /admin/variables
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "variables": {
+    "player_health": 80,
+    "poison_effect_duration": 30,
+    "world_time": "night",
+    "weather": "rainy",
+    "player_location": "forest",
+    "quest_progress": {
+      "main_quest": 3,
+      "side_quest_1": "completed",
+      "side_quest_2": "not_started"
+    },
+    "inventory_slots": 20,
+    "player_gold": 150
+  }
+}
+```
+
+#### Set Game Variables
+
+Sets one or more game variables.
+
+```
+POST /admin/variables
+```
+
+Request body:
+```json
+{
+  "variables": {
+    "player_health": 100,
+    "weather": "sunny",
+    "world_time": "day",
+    "player_gold": 200,
+    "quest_progress": {
+      "main_quest": 4
+    }
+  }
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Updated 5 variables",
+  "variables": {
+    "player_health": 100,
+    "poison_effect_duration": 30,
+    "world_time": "day",
+    "weather": "sunny",
+    "player_location": "forest",
+    "quest_progress": {
+      "main_quest": 4,
+      "side_quest_1": "completed",
+      "side_quest_2": "not_started"
+    },
+    "inventory_slots": 20,
+    "player_gold": 200
+  }
+}
+```
+
+#### Delete Game Variable
+
+Deletes a specific game variable.
+
+```
+DELETE /admin/variables/:key
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Variable poison_effect_duration deleted"
+}
+```
+
 ## Available Prompts
 
 - `defaultBehaviour.txt`: Standard helpful assistant behavior
 - `jsonResponse.txt`: Forces responses in JSON format
 - `gameCharacter.txt`: For game character interactions with response choices
+- `gameAdmin.txt`: Emotionless game administrator for managing game variables
+- `jsonSchema.txt`: Structured JSON responses with schema validation
+- `context.txt`: World administrator character with response choices
 
 ## Configuration Options
+
+### Common Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
@@ -124,8 +520,21 @@ Response:
 | `temperature` | Response randomness (0-1) | `0.7` |
 | `max_tokens` | Maximum tokens in response | `1000` |
 | `stream` | Enable streaming response | `false` |
-| `response_format` | Format type (`text` or `json`) | `text` |
-| `prompt_name` | System prompt to use | `defaultBehaviour` |
+| `response_format` | Format type (`text` or `json`) | `json` |
+| `prompt_name` | System prompt to use | `jsonResponse` |
+
+### NPC Chat Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `history_limit` | Number of previous messages to include | `10` |
+| `system_message` | Custom system message (overrides prompt) | `null` |
+
+### Admin Command Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `temperature` | Lower temperature for more consistent responses | `0.3` |
 
 ## Logging
 

@@ -22,7 +22,7 @@ async function sendToAI(message, options = {}, requestId) {
   // Extract options with defaults
   const model = options.model || config.openai.defaultModel;
   const temperature = options.temperature || 0.7;
-  const maxTokens = options.max_tokens || 1000;
+  const maxTokens = options.max_tokens || 10000;
   const isStreaming = options.stream === true; // Non-streaming by default
   const responseFormat = options.response_format || config.openai.defaultResponseFormat;
   const promptName = options.prompt_name || config.openai.defaultPromptName;
@@ -156,6 +156,87 @@ async function handleNonStreamingRequest(requestParams, requestId) {
   return completion;
 }
 
+/**
+ * Send request to OpenAI API with conversation history
+ * @param {string} message - Current user message
+ * @param {Array} history - Previous conversation messages
+ * @param {Object} options - Configuration options
+ * @param {string} requestId - Request ID for logging
+ * @returns {Promise<Object>} - API response
+ */
+async function sendToAIWithHistory(message, history = [], options = {}, requestId) {
+  // Extract options with defaults
+  const model = options.model || config.openai.defaultModel;
+  const temperature = options.temperature || 0.7;
+  const maxTokens = options.max_tokens || 10000;
+  const isStreaming = options.stream === true; // Non-streaming by default
+  const responseFormat = options.response_format || config.openai.defaultResponseFormat;
+
+  // Use custom system message if provided, otherwise load from prompt
+  const promptName = options.prompt_name || config.openai.defaultPromptName;
+  const systemContent = options.system_message ||
+    (options.prompt_name ?
+      promptManager.loadPrompt(promptName) :
+      config.openai.systemMessage);
+
+  // Log request details
+  logger.section('REQUEST WITH HISTORY DETAILS', requestId);
+  logger.info(`Model: ${model}`, requestId);
+  logger.info(`Temperature: ${temperature}`, requestId);
+  logger.info(`Max Tokens: ${maxTokens}`, requestId);
+  logger.info(`Streaming: ${isStreaming}`, requestId);
+  logger.info(`Response Format: ${responseFormat}`, requestId);
+  logger.info(`History messages: ${history.length}`, requestId);
+  logger.info(`System content (first 50 chars): ${systemContent.substring(0, 50)}...`, requestId);
+  logger.debug(`Current message: ${message}`, requestId);
+  logger.sectionEnd();
+
+  // Construct messages array with history
+  const messages = [
+    { role: "system", content: systemContent },
+    ...history,
+    { role: "user", content: message }
+  ];
+
+  // Base request parameters
+  const requestParams = {
+    model,
+    messages,
+    temperature,
+    max_tokens: maxTokens,
+  };
+
+  // Add JSON response format if requested
+  if (responseFormat === 'json') {
+    requestParams.response_format = { type: "json_object" };
+  }
+
+  try {
+    logger.info(`Sending request with history to OpenAI API`, requestId);
+
+    if (isStreaming) {
+      return await handleStreamingRequest(requestParams, requestId);
+    } else {
+      return await handleNonStreamingRequest(requestParams, requestId);
+    }
+  } catch (error) {
+    logger.section('API ERROR', requestId);
+    logger.error(`Model: ${model}`, requestId);
+    logger.error(`Error Type: ${error.constructor.name}`, requestId);
+    logger.error(`Error Message: ${error.message}`, requestId, error);
+
+    if (error.response) {
+      logger.error(`Status: ${error.response.status}`, requestId);
+      logger.error(`Headers: ${JSON.stringify(error.response.headers)}`, requestId);
+      logger.error(`Data: ${JSON.stringify(error.response.data)}`, requestId);
+    }
+
+    logger.sectionEnd();
+    throw new Error(`OpenAI API Error: ${error.message}`);
+  }
+}
+
 module.exports = {
-  sendToAI
+  sendToAI,
+  sendToAIWithHistory
 };

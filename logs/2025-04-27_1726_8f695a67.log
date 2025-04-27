@@ -1,0 +1,56 @@
+
+======== SERVER STARTED ========
+[2025-04-27T16:26:22.415Z] [INFO] Time: 2025-04-27T16:26:22.415Z
+[2025-04-27T16:26:22.415Z] [INFO] Session ID: 8f695a67
+[2025-04-27T16:26:22.416Z] [INFO] Log file: 2025-04-27_1726_8f695a67.log
+[2025-04-27T16:26:22.416Z] [INFO] Running on http://localhost:3000
+[2025-04-27T16:26:22.416Z] [INFO] Default model: gpt-4o-mini
+[2025-04-27T16:26:22.416Z] [INFO] Default prompt: defaultBehaviour
+[2025-04-27T16:26:22.417Z] [INFO] Default response format: text
+[2025-04-27T16:26:22.417Z] [INFO] API Key present: true
+[2025-04-27T16:26:22.417Z] [INFO] Available prompts: context, defaultBehaviour, gameCharacter, jsonResponse, jsonSchema
+[2025-04-27T16:26:22.418Z] [INFO] Log level: INFO
+========================================
+
+
+======== NEW REQUEST 1745771372331 ========
+[2025-04-27T16:29:32.331Z] [INFO] [1745771372331] Time: 2025-04-27T16:29:32.331Z
+[2025-04-27T16:29:32.332Z] [INFO] [1745771372331] IP: ::1
+[2025-04-27T16:29:32.332Z] [INFO] [1745771372331] Processing request
+
+======== REQUEST DETAILS 1745771372331 ========
+[2025-04-27T16:29:32.333Z] [INFO] [1745771372331] Model: gpt-4o-mini
+[2025-04-27T16:29:32.333Z] [INFO] [1745771372331] Temperature: 0.699999988079071
+[2025-04-27T16:29:32.333Z] [INFO] [1745771372331] Max Tokens: 10000
+[2025-04-27T16:29:32.333Z] [INFO] [1745771372331] Streaming: false
+[2025-04-27T16:29:32.334Z] [INFO] [1745771372331] Response Format: json
+[2025-04-27T16:29:32.334Z] [INFO] [1745771372331] Prompt: defaultBehaviour
+[2025-04-27T16:29:32.334Z] [INFO] [1745771372331] Prompt Content (first 50 chars): You are a helpful AI assistant designed to provide...
+========================================
+
+[2025-04-27T16:29:32.334Z] [INFO] [1745771372331] Sending request to OpenAI API
+[2025-04-27T16:29:32.335Z] [INFO] [1745771372331] Using non-streaming mode
+
+======== API ERROR 1745771372331 ========
+[2025-04-27T16:29:33.113Z] [ERROR] [1745771372331] Model: gpt-4o-mini
+[2025-04-27T16:29:33.113Z] [ERROR] [1745771372331] Error Type: BadRequestError
+[2025-04-27T16:29:33.113Z] [ERROR] [1745771372331] Error Message: 400 'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.
+[2025-04-27T16:29:33.114Z] [ERROR_DETAILS] [1745771372331] Error: 400 'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.
+    at APIError.generate (A:\Unreal Projects\FWShooter\UE5_AI_API\node_modules\openai\error.js:45:20)
+    at OpenAI.makeStatusError (A:\Unreal Projects\FWShooter\UE5_AI_API\node_modules\openai\core.js:302:33)
+    at OpenAI.makeRequest (A:\Unreal Projects\FWShooter\UE5_AI_API\node_modules\openai\core.js:346:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async handleNonStreamingRequest (A:\Unreal Projects\FWShooter\UE5_AI_API\services\aiService.js:140:22)
+    at async Object.sendToAI (A:\Unreal Projects\FWShooter\UE5_AI_API\services\aiService.js:69:14)
+    at async A:\Unreal Projects\FWShooter\UE5_AI_API\routes\aiRoutes.js:36:24
+========================================
+
+[2025-04-27T16:29:33.114Z] [ERROR] [1745771372331] ERROR - OpenAI API Error: 400 'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.
+[2025-04-27T16:29:33.115Z] [ERROR_DETAILS] [1745771372331] Error: OpenAI API Error: 400 'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.
+    at Object.sendToAI (A:\Unreal Projects\FWShooter\UE5_AI_API\services\aiService.js:84:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async A:\Unreal Projects\FWShooter\UE5_AI_API\routes\aiRoutes.js:36:24
+
+======== REQUEST ENDED 1745771372331 ========
+========================================
+
