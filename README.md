@@ -153,9 +153,48 @@ Response:
 
 ### NPC Management
 
-#### Initialize NPCs
+#### Initialize a Single NPC
 
-Initializes multiple NPCs at once and returns their unique IDs. This should be called when your game starts or when new NPCs are introduced.
+Initializes a single NPC and returns its unique ID. This is the recommended approach for initializing NPCs directly from individual actor instances in your game.
+
+```
+POST /npc
+```
+
+Request body:
+```json
+{
+  "name": "Blacksmith",
+  "description": "A burly blacksmith who crafts the finest weapons",
+  "backstory": "Born in the northern mountains, learned smithing from his father",
+  "personality": "Gruff but kind-hearted",
+  "location": "Village Forge",
+  "currentState": "Working on a sword",
+  "faction": "Villagers",
+  "relationships": {
+    "Mayor": "Respectful",
+    "Innkeeper": "Friends"
+  },
+  "inventory": ["Hammer", "Tongs", "Unfinished Sword"],
+  "skills": ["Smithing", "Metallurgy", "Haggling"],
+  "actorId": "UniqueActorID_123",  // Optional: Your game's internal actor ID
+  "position": {"x": 1250, "y": 750, "z": 100}  // Optional: Location in game world
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Initialized NPC: Blacksmith",
+  "npc_id": "550e8400-e29b-41d4-a716-446655440000",
+  "npc_name": "Blacksmith"
+}
+```
+
+#### Initialize Multiple NPCs (Batch Method)
+
+Initializes multiple NPCs at once and returns their unique IDs. This method is available for backward compatibility or for initializing groups of NPCs.
 
 ```
 POST /npc/initialize
