@@ -1,0 +1,17 @@
+{
+  "name": "express-server",
+  "version": "1.0.0",
+  "description": "Basic Express server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.8.4",
+    "dotenv": "^16.4.7",
+    "express": "^4.18.2",
+    "express-server": "file:",
+    "fs": "^0.0.1-security",
+    "openai": "^4.92.1"
+  }
+}
