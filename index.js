@@ -106,7 +106,13 @@ async function sendToAI(message, options = {}, requestId) {
       logger.debug(`Response content: ${streamData.substring(0, 100)}...`, requestId);
       logger.sectionEnd();
 
-      return { streaming: true, data: streamData, chunks: chunkCount };
+      // Create response object
+      const streamResponse = { streaming: true, data: streamData, chunks: chunkCount };
+
+      // Log the full AI response
+      logger.logAIResponse(streamResponse, true, requestId);
+
+      return streamResponse;
     } else {
       logger.info("Using non-streaming mode", requestId);
       const completion = await client.chat.completions.create(requestParams);
@@ -121,6 +127,9 @@ async function sendToAI(message, options = {}, requestId) {
       logger.info(`Finish reason: ${completion.choices[0]?.finish_reason || "N/A"}`, requestId);
       logger.debug(`Response content: ${responseContent.substring(0, 100)}...`, requestId);
       logger.sectionEnd();
+
+      // Log the full AI response
+      logger.logAIResponse(completion, false, requestId);
 
       return completion;
     }
@@ -182,6 +191,12 @@ app.post("/ai", async (req, res) => {
       responseTime
     );
 
+    // Log the formatted response that will be sent to the client
+    logger.section('FORMATTED API RESPONSE', requestId);
+    logger.info(`Response structure:`, requestId);
+    logger.logObject('API Response', formattedResponse, requestId, false);
+    logger.sectionEnd();
+
     logger.debug(`Returning formatted response`, requestId);
     return res.json(formattedResponse);
   } catch (error) {
@@ -199,6 +214,8 @@ app.post("/ai", async (req, res) => {
 app.listen(port, () => {
   logger.section('SERVER STARTED');
   logger.info(`Time: ${new Date().toISOString()}`);
+  logger.info(`Session ID: ${logger.getSessionId()}`);
+  logger.info(`Log file: ${logger.getLogFileName()}`);
   logger.info(`Running on http://localhost:${port}`);
   logger.info(`Default model: ${defaultModel}`);
   logger.info(`Default prompt: ${defaultPromptName}`);

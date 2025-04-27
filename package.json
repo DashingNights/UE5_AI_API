@@ -2,9 +2,9 @@
   "name": "express-server",
   "version": "1.0.0",
   "description": "Basic Express server",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "axios": "^1.8.4",
