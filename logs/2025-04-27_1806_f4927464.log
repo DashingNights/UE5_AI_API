@@ -18,3 +18,10 @@
 [2025-04-27T17:06:30.624Z] [ERROR] [1745773590624] Invalid NPC data: Missing name
 ========================================
 
+
+======== SINGLE NPC INITIALIZATION 1745773667833 ========
+[2025-04-27T17:07:47.833Z] [INFO] [1745773667833] Initializing NPC: Blacksmith
+[2025-04-27T17:07:47.834Z] [INFO] Initialized NPC: Blacksmith (53802bac-f17a-4641-8c7a-cfec56bd299c)
+[2025-04-27T17:07:47.834Z] [INFO] [1745773667833] Successfully initialized NPC: Blacksmith with ID: 53802bac-f17a-4641-8c7a-cfec56bd299c
+========================================
+
