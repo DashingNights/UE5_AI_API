@@ -19,6 +19,7 @@ A lightweight, high-performance API service for integrating OpenAI's language mo
 - [📊 Response Formats](#-response-formats)
 - [⚙️ Configuration](#️-configuration)
 - [📝 Logging](#-logging)
+- [🎮 Unreal Engine Integration](#-unreal-engine-integration)
 - [🏆 Best Practices](#-best-practices)
 - [🔧 Troubleshooting](#-troubleshooting)
 - [📄 License](#-license)
@@ -116,7 +117,7 @@ The application follows a modular architecture:
      }'
    ```
 
-> **Note**: For Unreal Engine integration, you'll typically initialize NPCs directly from your game using HTTP requests from Blueprint or C++.
+> **Note**: For Unreal Engine integration, we strongly recommend using the [Unreal-Fetch](https://github.com/GDi4k/unreal-fetch) plugin for the best experience. See the [Unreal Engine Integration](#-unreal-engine-integration) section for details and example code.
 
 ## 📚 API Reference
 
@@ -964,6 +965,98 @@ The complete AI response content is logged with clear markers:
 
 This makes it easy to review AI responses for debugging and quality control.
 
+## 🎮 Unreal Engine Integration
+
+For the best integration with Unreal Engine, we strongly recommend using [Unreal-Fetch](https://github.com/GDi4k/unreal-fetch), a powerful HTTP client plugin for Unreal Engine.
+
+### Why Unreal-Fetch?
+
+- **Blueprint Support**: Complete Blueprint integration for easy implementation
+- **Async Operations**: Non-blocking HTTP requests to maintain game performance
+- **JSON Handling**: Built-in JSON serialization/deserialization
+- **Request Queuing**: Automatic request management
+- **Error Handling**: Robust error handling and retry mechanisms
+
+### Installation
+
+1. Download the [Unreal-Fetch plugin](https://github.com/GDi4k/unreal-fetch)
+2. Add it to your project's Plugins folder
+3. Enable the plugin in your project settings
+
+### Example Implementation
+
+Here's a basic example of how to chat with an NPC using Unreal-Fetch:
+
+```cpp
+// C++ Example
+#include "FetchSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+
+void ANPCCharacter::SendChatMessage(FString Message)
+{
+    // Get the Fetch subsystem
+    UFetchSubsystem* FetchSubsystem = GEngine->GetEngineSubsystem<UFetchSubsystem>();
+
+    // Create the request body
+    TSharedPtr<FJsonObject> RequestBody = MakeShareable(new FJsonObject);
+    RequestBody->SetStringField("message", Message);
+
+    // Create options object
+    TSharedPtr<FJsonObject> Options = MakeShareable(new FJsonObject);
+    Options->SetStringField("model", "gpt-4o-mini");
+    Options->SetNumberField("temperature", 0.7);
+    Options->SetNumberField("max_tokens", 1000);
+    Options->SetBoolField("stream", false);
+
+    // Add options to request body
+    RequestBody->SetObjectField("options", Options);
+
+    // Convert to JSON string
+    FString RequestBodyString;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBodyString);
+    FJsonSerializer::Serialize(RequestBody.ToSharedRef(), Writer);
+
+    // Create the request
+    FFetchRequestOptions RequestOptions;
+    RequestOptions.URL = FString::Printf(TEXT("http://localhost:3000/npc/%s/chat"), *NPCName);
+    RequestOptions.Method = EFetchRequestMethod::POST;
+    RequestOptions.Headers.Add("Content-Type", "application/json");
+    RequestOptions.Body = RequestBodyString;
+
+    // Send the request
+    FetchSubsystem->Fetch(RequestOptions, FFetchResponseDelegate::CreateUObject(this, &ANPCCharacter::OnChatResponseReceived));
+}
+
+void ANPCCharacter::OnChatResponseReceived(FFetchResponse Response)
+{
+    if (Response.Success)
+    {
+        // Parse the JSON response
+        TSharedPtr<FJsonObject> JsonObject;
+        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response.Content);
+        if (FJsonSerializer::Deserialize(Reader, JsonObject))
+        {
+            // Extract the NPC's reply
+            TSharedPtr<FJsonObject> DataObject = JsonObject->GetObjectField("data");
+            FString Reply = DataObject->GetStringField("reply");
+
+            // Update the NPC's dialogue
+            UpdateDialogue(Reply);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to get response from API: %s"), *Response.Error);
+    }
+}
+```
+
+For Blueprint implementation, Unreal-Fetch provides nodes for all these operations, making it even easier to integrate.
+
+### Blueprint Example
+
+![Unreal-Fetch Blueprint Example](https://raw.githubusercontent.com/GDi4k/unreal-fetch/main/Resources/blueprint-example.png)
+
 ## 🏆 Best Practices
 
 ### NPC Initialization
@@ -971,6 +1064,7 @@ This makes it easy to review AI responses for debugging and quality control.
 - **Initialize NPCs individually**: Use `POST /npc` for each NPC rather than batch initialization
 - **Include unique identifiers**: Add an `actorId` field that matches your game's internal actor ID
 - **Avoid duplicate NPCs**: Check if an NPC exists before creating a new one with the same name
+- **Use Unreal-Fetch**: For the best integration experience with Unreal Engine
 
 ### Conversation Management
 
