@@ -29,8 +29,8 @@ router.post('/', (req, res) => {
   }
 
   try {
-    // Initialize the NPC and get its ID
-    const npcId = contextManager.initializeNpc(npcData);
+    // Initialize the NPC and get its ID (pass the request ID)
+    const npcId = contextManager.initializeNpc(npcData, requestId);
 
     logger.info(`Successfully initialized NPC: ${npcData.name} with ID: ${npcId}`, requestId);
 
@@ -76,8 +76,8 @@ router.post('/initialize', (req, res) => {
   }
 
   try {
-    // Initialize all NPCs and get their IDs
-    const npcIds = contextManager.initializeNpcs(npcs);
+    // Initialize all NPCs and get their IDs (pass the request ID)
+    const npcIds = contextManager.initializeNpcs(npcs, requestId);
 
     logger.info(`Successfully initialized ${Object.keys(npcIds).length} NPCs`, requestId);
     logger.sectionEnd();
@@ -220,6 +220,154 @@ router.get('/debug/log', (req, res) => {
 });
 
 /**
+ * Debug endpoint to get raw NPC data including relationships
+ * GET /npc/:npcIdOrName/debug
+ */
+router.get('/:npcIdOrName/debug', (req, res) => {
+  const npcIdOrName = req.params.npcIdOrName;
+  const requestId = Date.now().toString();
+
+  logger.section('DEBUG NPC REQUEST', requestId);
+  logger.info(`Getting debug data for NPC: ${npcIdOrName}`, requestId);
+
+  // First, try to get NPC by ID
+  let npcMetadata = contextManager.getNpcMetadata(npcIdOrName);
+  let actualNpcId = npcIdOrName;
+
+  // If not found by ID, try to find by name
+  if (!npcMetadata) {
+    logger.info(`NPC not found by ID, trying to find by name: ${npcIdOrName}`, requestId);
+    const npcByName = contextManager.findNpcByName(npcIdOrName);
+
+    if (npcByName) {
+      actualNpcId = npcByName.id;
+      npcMetadata = contextManager.getNpcMetadata(actualNpcId);
+      logger.info(`Found NPC by name. Using ID: ${actualNpcId}`, requestId);
+    }
+  }
+
+  // If still not found, return error
+  if (!npcMetadata) {
+    logger.error(`NPC with identifier ${npcIdOrName} not found`, requestId);
+    logger.sectionEnd();
+    return res.status(404).json({
+      status: 'error',
+      message: `NPC with identifier ${npcIdOrName} not found`
+    });
+  }
+
+  // Get relationship network
+  const relationshipNetwork = contextManager.getNpcRelationshipNetwork(actualNpcId);
+
+  // Check for the original relationship field (singular)
+  const originalRelationshipField = npcMetadata.relationship || null;
+
+  // Log detailed information about the NPC's relationships
+  logger.info(`NPC ${npcMetadata.name} relationships object: ${JSON.stringify(npcMetadata.relationships || {})}`, requestId);
+  if (originalRelationshipField) {
+    logger.info(`NPC ${npcMetadata.name} has original 'relationship' field: ${originalRelationshipField}`, requestId);
+  }
+
+  // Log all metadata keys for debugging
+  logger.info(`NPC ${npcMetadata.name} metadata keys: ${JSON.stringify(Object.keys(npcMetadata))}`, requestId);
+
+  // Return detailed debug information with enhanced debug info
+  const response = {
+    status: 'success',
+    npc_id: actualNpcId,
+    npc_name: npcMetadata.name,
+    raw_metadata: npcMetadata,
+    relationships_object: npcMetadata.relationships || {},
+    relationship_network: relationshipNetwork,
+    has_relationships: npcMetadata.relationships && Object.keys(npcMetadata.relationships).length > 0,
+    relationship_count: npcMetadata.relationships ? Object.keys(npcMetadata.relationships).length : 0,
+    debug_info: {
+      original_relationship_field: originalRelationshipField,
+      metadata_keys: Object.keys(npcMetadata),
+      relationships_type: typeof npcMetadata.relationships,
+      is_relationships_array: Array.isArray(npcMetadata.relationships)
+    }
+  };
+
+  logger.info(`Returning debug data for NPC: ${npcMetadata.name}`, requestId);
+  logger.sectionEnd();
+
+  return res.json(response);
+});
+
+/**
+ * Discover relationships for all NPCs
+ * GET /npc/discover-relationships
+ */
+router.get('/discover-relationships', (req, res) => {
+  const requestId = Date.now().toString();
+
+  logger.section('MANUAL RELATIONSHIP DISCOVERY', requestId);
+  logger.info('Manually triggered relationship discovery', requestId);
+
+  // Discover relationships for all NPCs
+  const result = contextManager.discoverAllNpcRelationships(requestId);
+
+  logger.info(`Relationship discovery complete: ${result.total_direct_relationships} direct and ${result.total_indirect_relationships} indirect relationships found`, requestId);
+  logger.sectionEnd();
+
+  return res.json({
+    status: 'success',
+    message: 'Relationship discovery completed',
+    timestamp: new Date().toISOString(),
+    request_id: requestId,
+    stats: result
+  });
+});
+
+/**
+ * Get relationship network for a specific NPC
+ * GET /npc/:npcIdOrName/relationships
+ */
+router.get('/:npcIdOrName/relationships', (req, res) => {
+  const npcIdOrName = req.params.npcIdOrName;
+
+  // First, try to get NPC by ID
+  let npcMetadata = contextManager.getNpcMetadata(npcIdOrName);
+  let actualNpcId = npcIdOrName;
+
+  // If not found by ID, try to find by name
+  if (!npcMetadata) {
+    const npcByName = contextManager.findNpcByName(npcIdOrName);
+
+    if (npcByName) {
+      actualNpcId = npcByName.id;
+      npcMetadata = contextManager.getNpcMetadata(actualNpcId);
+    }
+  }
+
+  // If still not found, return error
+  if (!npcMetadata) {
+    return res.status(404).json({
+      status: 'error',
+      message: `NPC with identifier ${npcIdOrName} not found`
+    });
+  }
+
+  // Discover relationships for this NPC
+  const relationships = contextManager.discoverNpcRelationships(actualNpcId);
+
+  if (relationships.status === "error") {
+    return res.status(500).json({
+      status: 'error',
+      message: relationships.message
+    });
+  }
+
+  return res.json({
+    status: 'success',
+    npc_id: actualNpcId,
+    npc_name: npcMetadata.name,
+    relationships: relationships
+  });
+});
+
+/**
  * Get relationship between two NPCs
  * GET /npc/relationship?npc1=:npcId1&npc2=:npcId2
  */
@@ -344,8 +492,41 @@ router.post('/:npcIdOrName/chat', async (req, res) => {
       max_tokens: options.max_tokens || 1000,
       stream: options.stream === true,
       response_format: 'json',
-      prompt_name: options.prompt_name || 'gameCharacter'
+      prompt_name: options.prompt_name || 'gameCharacter',
+      discover_relationships: options.discover_relationships !== false // Default to true unless explicitly set to false
     };
+
+    // Get relationship network for additional context
+    // If discover_relationships is true, trigger a fresh discovery first
+    let relationshipNetwork;
+
+    if (chatOptions.discover_relationships) {
+      logger.info(`Triggering relationship discovery for ${npcMetadata.name} before chat`, requestId);
+      // Discover relationships for this specific NPC
+      const discoveryResult = contextManager.discoverNpcRelationships(actualNpcId);
+      logger.info(`Relationship discovery complete: Found ${discoveryResult.stats.direct_relationships} direct and ${discoveryResult.stats.indirect_relationships} indirect relationships`, requestId);
+
+      // Get the formatted network
+      relationshipNetwork = contextManager.getNpcRelationshipNetwork(actualNpcId);
+    } else {
+      // Use cached relationship data
+      relationshipNetwork = contextManager.getNpcRelationshipNetwork(actualNpcId);
+    }
+
+    // Log relationship information for debugging
+    logger.info(`NPC ${npcMetadata.name} relationships:`, requestId);
+    if (npcMetadata.relationships && Object.keys(npcMetadata.relationships).length > 0) {
+      logger.info(`Direct relationships defined in metadata: ${JSON.stringify(npcMetadata.relationships)}`, requestId);
+    } else {
+      logger.info(`No direct relationships defined in metadata`, requestId);
+    }
+
+    if (relationshipNetwork) {
+      logger.info(`Discovered direct relationships: ${relationshipNetwork.direct_relationships.length}`, requestId);
+      logger.info(`Discovered indirect relationships: ${relationshipNetwork.indirect_relationships.length}`, requestId);
+    } else {
+      logger.info(`No relationship network discovered`, requestId);
+    }
 
     // Create a custom system message with NPC context
     const customSystemMessage = `
@@ -366,6 +547,49 @@ ${npcMetadata.player_relationship ? `Your relationship with the player:
 ${npcMetadata.relationships && Object.keys(npcMetadata.relationships).length > 0 ?
 `Your relationships with other NPCs:
 ${Object.entries(npcMetadata.relationships).map(([name, status]) => `- ${name}: ${status}`).join('\n')}
+` : 'You have no defined relationships with other NPCs yet.'}
+
+${relationshipNetwork ? `
+Detailed information about people you know:
+${relationshipNetwork.direct_relationships.length > 0 ?
+`${relationshipNetwork.direct_relationships.map(rel => {
+  let relationshipInfo = `- ${rel.name}: ${rel.target_to_other !== 'none' ? 'You consider them ' + rel.target_to_other : 'You have a neutral relationship with them'}`;
+
+  // Add metadata about the related NPC
+  if (rel.description) relationshipInfo += `\n  Description: ${rel.description}`;
+  if (rel.personality) relationshipInfo += `\n  Personality: ${rel.personality}`;
+  if (rel.faction) relationshipInfo += `\n  Faction: ${rel.faction}`;
+  if (rel.location) relationshipInfo += `\n  Location: ${rel.location}`;
+  if (rel.currentState) relationshipInfo += `\n  Current activity: ${rel.currentState}`;
+
+  // Add how they feel about you
+  if (rel.other_to_target !== 'none') {
+    relationshipInfo += `\n  They consider you ${rel.other_to_target}`;
+  }
+
+  return relationshipInfo;
+}).join('\n\n')}
+` : ''}
+
+${relationshipNetwork.indirect_relationships.length > 0 ?
+`People you might know through mutual connections:
+${relationshipNetwork.indirect_relationships.map(rel => {
+  let indirectInfo = `- ${rel.name}:`;
+
+  // Add metadata about the indirect NPC
+  if (rel.description) indirectInfo += `\n  Description: ${rel.description}`;
+  if (rel.personality) indirectInfo += `\n  Personality: ${rel.personality}`;
+  if (rel.faction) indirectInfo += `\n  Faction: ${rel.faction}`;
+  if (rel.location) indirectInfo += `\n  Location: ${rel.location}`;
+
+  // Add connection information
+  indirectInfo += `\n  Connection: You both know ${rel.through}`;
+  indirectInfo += `\n  Your relationship with ${rel.through}: ${rel.target_to_common}`;
+  indirectInfo += `\n  ${rel.name}'s relationship with ${rel.through}: ${rel.other_to_common}`;
+
+  return indirectInfo;
+}).join('\n\n')}
+` : ''}
 ` : ''}
 
 Your responses must be in valid JSON format with the following structure:

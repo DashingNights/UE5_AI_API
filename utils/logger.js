@@ -167,15 +167,68 @@ function sectionEnd() {
 }
 
 /**
- * Log an object as JSON
+ * Log an object as JSON with detailed formatting
  * @param {string} label - Label for the object
  * @param {Object} obj - Object to log
  * @param {string} [requestId] - Optional request ID
  * @param {boolean} [detailed=false] - Whether to log the full object
+ * @param {boolean} [trace=false] - Whether to include stack trace
  */
-function logObject(label, obj, requestId, detailed = false) {
-  if (currentLogLevel <= LOG_LEVELS.DEBUG || !detailed) {
-    info(`${label}: ${JSON.stringify(obj, null, 2)}`, requestId);
+function logObject(label, obj, requestId, detailed = false, trace = false) {
+  if (currentLogLevel <= LOG_LEVELS.DEBUG || detailed) {
+    // Create a separator for better visibility
+    const separator = '='.repeat(80);
+    writeToLogFile(separator);
+
+    // Add timestamp and label
+    const timestamp = new Date().toISOString();
+    writeToLogFile(`[${timestamp}] OBJECT DUMP: ${label}`);
+
+    // Add stack trace if requested
+    if (trace) {
+      const stackTrace = new Error().stack
+        .split('\n')
+        .slice(2) // Remove the Error and this function from the trace
+        .map(line => line.trim())
+        .join('\n');
+
+      writeToLogFile('STACK TRACE:');
+      writeToLogFile(stackTrace);
+      writeToLogFile(separator);
+    }
+
+    // Log the full object with pretty formatting
+    try {
+      const jsonOutput = JSON.stringify(obj, null, 2);
+      writeToLogFile(jsonOutput);
+    } catch (err) {
+      writeToLogFile(`[ERROR] Failed to stringify object: ${err.message}`);
+      // Try to log the object with circular references replaced
+      try {
+        const getCircularReplacer = () => {
+          const seen = new WeakSet();
+          return (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+              if (seen.has(value)) {
+                return '[Circular Reference]';
+              }
+              seen.add(value);
+            }
+            return value;
+          };
+        };
+
+        const safeJson = JSON.stringify(obj, getCircularReplacer(), 2);
+        writeToLogFile(safeJson);
+      } catch (e) {
+        writeToLogFile(`[ERROR] Failed to stringify with circular replacer: ${e.message}`);
+      }
+    }
+
+    writeToLogFile(separator);
+
+    // Also log to console with a shorter format
+    console.info(`${formatLogMessage('INFO', `${label} (see log file for full details)`, requestId)}`);
   } else if (currentLogLevel <= LOG_LEVELS.INFO) {
     // Log a simplified version of the object
     const simplifiedObj = { ...obj };
@@ -246,6 +299,156 @@ function getLogFileName() {
   return path.basename(CURRENT_LOG_FILE);
 }
 
+/**
+ * Log a function entry with parameters
+ * @param {string} functionName - Name of the function being entered
+ * @param {Object} params - Parameters passed to the function
+ * @param {string} [requestId] - Optional request ID
+ */
+function functionEntry(functionName, params, requestId) {
+  if (currentLogLevel <= LOG_LEVELS.DEBUG) {
+    const timestamp = new Date().toISOString();
+    const message = `ENTER FUNCTION: ${functionName}`;
+
+    // Create a separator for better visibility
+    const separator = '-'.repeat(40);
+    writeToLogFile(separator);
+    writeToLogFile(`[${timestamp}] ${message}`);
+
+    // Log parameters
+    if (params) {
+      try {
+        const paramsJson = JSON.stringify(params, null, 2);
+        writeToLogFile(`PARAMETERS:`);
+        writeToLogFile(paramsJson);
+      } catch (err) {
+        writeToLogFile(`[ERROR] Failed to stringify parameters: ${err.message}`);
+      }
+    }
+
+    // Log stack trace for deeper context
+    const stackTrace = new Error().stack
+      .split('\n')
+      .slice(2, 5) // Just get a few levels of the stack
+      .map(line => line.trim())
+      .join('\n');
+
+    writeToLogFile(`CALL STACK (partial):`);
+    writeToLogFile(stackTrace);
+    writeToLogFile(separator);
+
+    // Also log to console with a shorter format
+    console.debug(formatLogMessage('DEBUG', message, requestId));
+  }
+}
+
+/**
+ * Log a function exit with return value
+ * @param {string} functionName - Name of the function being exited
+ * @param {any} returnValue - Value being returned from the function
+ * @param {string} [requestId] - Optional request ID
+ */
+function functionExit(functionName, returnValue, requestId) {
+  if (currentLogLevel <= LOG_LEVELS.DEBUG) {
+    const timestamp = new Date().toISOString();
+    const message = `EXIT FUNCTION: ${functionName}`;
+
+    // Create a separator for better visibility
+    const separator = '-'.repeat(40);
+    writeToLogFile(separator);
+    writeToLogFile(`[${timestamp}] ${message}`);
+
+    // Log return value
+    if (returnValue !== undefined) {
+      try {
+        const returnJson = JSON.stringify(returnValue, null, 2);
+        writeToLogFile(`RETURN VALUE:`);
+        writeToLogFile(returnJson);
+      } catch (err) {
+        writeToLogFile(`[ERROR] Failed to stringify return value: ${err.message}`);
+        // Try with circular replacer
+        try {
+          const getCircularReplacer = () => {
+            const seen = new WeakSet();
+            return (key, value) => {
+              if (typeof value === 'object' && value !== null) {
+                if (seen.has(value)) {
+                  return '[Circular Reference]';
+                }
+                seen.add(value);
+              }
+              return value;
+            };
+          };
+
+          const safeJson = JSON.stringify(returnValue, getCircularReplacer(), 2);
+          writeToLogFile(safeJson);
+        } catch (e) {
+          writeToLogFile(`[ERROR] Failed to stringify with circular replacer: ${e.message}`);
+        }
+      }
+    } else {
+      writeToLogFile(`RETURN VALUE: undefined`);
+    }
+
+    writeToLogFile(separator);
+
+    // Also log to console with a shorter format
+    console.debug(formatLogMessage('DEBUG', message, requestId));
+  }
+}
+
+/**
+ * Log a detailed step within a function
+ * @param {string} functionName - Name of the function
+ * @param {string} stepName - Name of the step
+ * @param {any} data - Data associated with this step
+ * @param {string} [requestId] - Optional request ID
+ */
+function functionStep(functionName, stepName, data, requestId) {
+  if (currentLogLevel <= LOG_LEVELS.DEBUG) {
+    const timestamp = new Date().toISOString();
+    const message = `STEP [${functionName}]: ${stepName}`;
+
+    writeToLogFile(`[${timestamp}] ${message}`);
+
+    // Log step data
+    if (data !== undefined) {
+      try {
+        const dataJson = JSON.stringify(data, null, 2);
+        writeToLogFile(`STEP DATA:`);
+        writeToLogFile(dataJson);
+      } catch (err) {
+        writeToLogFile(`[ERROR] Failed to stringify step data: ${err.message}`);
+      }
+    }
+
+    // Also log to console with a shorter format
+    console.debug(formatLogMessage('DEBUG', message, requestId));
+  }
+}
+
+/**
+ * Log performance metrics
+ * @param {string} label - Label for the performance metric
+ * @param {number} startTime - Start time in milliseconds
+ * @param {string} [requestId] - Optional request ID
+ * @returns {number} - Elapsed time in milliseconds
+ */
+function performance(label, startTime, requestId) {
+  const endTime = Date.now();
+  const elapsedMs = endTime - startTime;
+
+  if (currentLogLevel <= LOG_LEVELS.DEBUG) {
+    const message = `PERFORMANCE [${label}]: ${elapsedMs}ms`;
+    const formattedMessage = formatLogMessage('DEBUG', message, requestId);
+    console.debug(formattedMessage);
+    writeToLogFile(formattedMessage);
+  }
+
+  return elapsedMs;
+}
+
 module.exports = {
   debug,
   info,
@@ -255,6 +458,10 @@ module.exports = {
   sectionEnd,
   logObject,
   logAIResponse,
+  functionEntry,
+  functionExit,
+  functionStep,
+  performance,
   LOG_LEVELS,
   getCurrentLogFilePath,
   getSessionId,
