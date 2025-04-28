@@ -1156,7 +1156,7 @@ For Blueprint implementation, Unreal-Fetch provides nodes for all these operatio
 
 ### Blueprint Example
 
-![Unreal-Fetch Blueprint Example](https://raw.githubusercontent.com/GDi4k/unreal-fetch/main/Resources/blueprint-example.png)
+![Unreal-Fetch Blueprint Example](https://github.com/GDi4K/unreal-fetch/blob/main/Images/HelloWorldUnrealFetch.png)
 
 ## 🏆 Best Practices
 
