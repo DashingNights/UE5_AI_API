@@ -1,20 +1,41 @@
-# AI API Service
+# UE5 AI API Service
 
-A lightweight API service for interacting with OpenAI's language models with optimized JSON responses and minimal token footprint.
+A lightweight, high-performance API service for integrating OpenAI's language models with Unreal Engine 5 games. This service provides standardized JSON responses, NPC conversation management, and relationship tracking with minimal token footprint.
 
-## Features
+## 📋 Table of Contents
 
-- Standardized JSON response format
-- Multiple system prompts for different use cases
-- Configurable response formats (text or JSON)
-- Structured logging with different log levels
-- Token usage optimization
-- Support for streaming responses
-- Modular architecture for better maintainability
+- [Features](#features)
+- [Architecture](#architecture)
+- [Setup](#setup)
+- [API Reference](#api-reference)
+  - [AI Endpoints](#ai-endpoints)
+  - [NPC Endpoints](#npc-endpoints)
+  - [Admin Endpoints](#admin-endpoints)
+- [NPC System](#npc-system)
+- [Conversation Management](#conversation-management)
+- [Relationship System](#relationship-system)
+- [Response Formats](#response-formats)
+- [Configuration](#configuration)
+- [Logging](#logging)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
-## Project Structure
+## ✨ Features
 
-The application is organized into the following modules:
+- **Standardized JSON Response Format**: Consistent, structured responses for easy integration with Unreal Engine
+- **Multiple System Prompts**: Different prompt templates for various use cases (NPCs, JSON responses, etc.)
+- **NPC Conversation Management**: Track and maintain conversation history for each NPC
+- **Relationship System**: Model relationships between NPCs and with the player
+- **Session-Based Memory**: NPCs remember previous conversations within the same session
+- **Configurable Response Formats**: Choose between text or structured JSON responses
+- **Comprehensive Logging**: Detailed logs with timestamps and message content
+- **Token Usage Optimization**: Minimize token usage for cost-effective operation
+- **Streaming Support**: Optional streaming responses for real-time text generation
+- **Modular Architecture**: Well-organized codebase for easy maintenance and extension
+
+## 🏗️ Architecture
+
+The application follows a modular architecture:
 
 ```
 ├── config.js                # Application configuration
@@ -34,59 +55,86 @@ The application is organized into the following modules:
 │   └── contextManager.js    # Conversation context management
 └── prompts/                 # System prompts
     ├── defaultBehaviour.txt # Default system prompt
+    ├── gameCharacter.txt    # NPC character prompt
+    ├── jsonResponse.txt     # JSON-formatted responses
     └── ...                  # Other prompt templates
 ```
 
-## Setup
+### Key Components
 
-1. Install dependencies:
-   ```
+| Component | Description |
+|-----------|-------------|
+| **contextManager.js** | Manages NPC data, conversation history, and relationships |
+| **aiService.js** | Handles interactions with OpenAI API, including streaming and history management |
+| **promptManager.js** | Loads and caches system prompts for different use cases |
+| **logger.js** | Provides structured logging with session-based log files |
+| **npcRoutes.js** | Implements NPC-related API endpoints |
+| **responseFormatter.js** | Standardizes API response format |
+
+## 🚀 Setup
+
+1. **Install dependencies**:
+   ```bash
    npm install
    ```
 
-2. Create a `.env` file with the following variables:
+2. **Create a `.env` file** with the following variables:
    ```
    OPENAI_API_KEY=your_openai_api_key
    PORT=3000
    DEFAULT_MODEL=gpt-4o-mini
    DEFAULT_PROMPT=defaultBehaviour
-   RESPONSE_FORMAT=text
+   RESPONSE_FORMAT=json
    LOG_LEVEL=INFO
    ```
 
-3. Start the server:
-   ```
-   node index.js
+3. **Start the server**:
+   ```bash
+   node server.js
    ```
 
-## API Endpoints
+4. **Test the API**:
+   ```bash
+   curl -X GET http://localhost:3000/health
+   ```
+
+5. **Initialize an NPC**:
+   ```bash
+   curl -X POST http://localhost:3000/npc \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "Blacksmith",
+       "description": "A burly blacksmith who crafts the finest weapons",
+       "personality": "Gruff but kind-hearted",
+       "location": "Village Forge"
+     }'
+   ```
+
+> **Note**: For Unreal Engine integration, you'll typically initialize NPCs directly from your game using HTTP requests from Blueprint or C++.
+
+## 📚 API Reference
 
 This section provides a comprehensive reference for all available API endpoints.
 
-## Quick Reference
+### Endpoint Overview
 
-### Health Endpoints
-- `GET /health` - Check if the API is running
-
-### AI Endpoints
-- `POST /ai` - Send a message to the AI
-
-### NPC Endpoints
-- `POST /npc` - Initialize a single NPC
-- `POST /npc/initialize` - Initialize multiple NPCs (batch)
-- `POST /npc/:npcIdOrName/chat` - Chat with an NPC (by ID or name)
-- `GET /npc/:npcIdOrName/history` - Get NPC conversation history (by ID or name)
-- `DELETE /npc/:npcIdOrName/history` - Clear NPC conversation history (by ID or name)
-- `GET /npc/summary` - Get summary of all NPCs
-- `GET /npc/find` - Find NPC by name
-- `GET /npc/relationship` - Get relationship between two NPCs
-- `GET /npc/debug/log` - Log all NPC data (debug)
-
-### Admin Endpoints
-- `POST /admin/command` - Process game admin command
-- `GET /admin/variables` - Get all game variables
-- `POST /admin/variables` - Set game variables
-- `DELETE /admin/variables/:key` - Delete a game variable
+| Category | Endpoint | Method | Description |
+|----------|----------|--------|-------------|
+| **Health** | `/health` | GET | Check if the API is running |
+| **AI** | `/ai` | POST | Send a message to the AI |
+| **NPC** | `/npc` | POST | Initialize a single NPC |
+| **NPC** | `/npc/initialize` | POST | Initialize multiple NPCs (batch) |
+| **NPC** | `/npc/:npcIdOrName/chat` | POST | Chat with an NPC |
+| **NPC** | `/npc/:npcIdOrName/history` | GET | Get NPC conversation history |
+| **NPC** | `/npc/:npcIdOrName/history` | DELETE | Clear NPC conversation history |
+| **NPC** | `/npc/summary` | GET | Get summary of all NPCs |
+| **NPC** | `/npc/find` | GET | Find NPC by name |
+| **NPC** | `/npc/relationship` | GET | Get relationship between two NPCs |
+| **NPC** | `/npc/debug/log` | GET | Log all NPC data (debug) |
+| **Admin** | `/admin/command` | POST | Process game admin command |
+| **Admin** | `/admin/variables` | GET | Get all game variables |
+| **Admin** | `/admin/variables` | POST | Set game variables |
+| **Admin** | `/admin/variables/:key` | DELETE | Delete a game variable |
 
 ## Detailed API Reference
 
@@ -655,18 +703,142 @@ Deletes a specific game variable.
 }
 ```
 
-## Available Prompts
+## 🧠 NPC System
 
-- `defaultBehaviour.txt`: Standard helpful assistant behavior
-- `jsonResponse.txt`: Forces responses in JSON format
-- `gameCharacter.txt`: For game character interactions with response choices
-- `gameAdmin.txt`: Emotionless game administrator for managing game variables
-- `jsonSchema.txt`: Structured JSON responses with schema validation
-- `context.txt`: World administrator character with response choices
+The NPC system manages game characters with rich metadata and conversation history.
 
-## Configuration Options
+### NPC Data Structure
 
-### Common Options
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | String | NPC's name |
+| `description` | String | Brief description of the NPC |
+| `backstory` | String | NPC's background story |
+| `personality` | String | NPC's personality traits |
+| `location` | String | Current location of the NPC |
+| `currentState` | String | What the NPC is currently doing |
+| `faction` | String | Group the NPC belongs to |
+| `player_relationship` | Object | Relationship with the player |
+| `relationships` | Object | Relationships with other NPCs |
+| `inventory` | Array | Items the NPC possesses |
+| `skills` | Array | Skills the NPC has |
+
+### Player Relationship Structure
+
+```javascript
+{
+  "status": "neutral",       // friendly, neutral, hostile, etc.
+  "affinity": 50,            // 0-100 scale: 0=hostile, 50=neutral, 100=friendly
+  "trust": 50,               // 0-100 scale
+  "respect": 50,             // 0-100 scale
+  "history": []              // Array of significant interactions
+}
+```
+
+> **Note**: The `history` array in player_relationship stores significant milestones in the relationship, not every conversation message.
+
+## 💬 Conversation Management
+
+The system maintains conversation history for each NPC, allowing them to remember previous interactions within the same session.
+
+### Conversation Storage
+
+- Each NPC has a dedicated conversation history array
+- Messages are stored with timestamps and role information (player or NPC)
+- By default, the 10 most recent messages are included in the context for AI responses
+- The history limit can be customized with the `history_limit` parameter
+
+### Getting Conversation History
+
+Use the `GET /npc/:npcIdOrName/history` endpoint to retrieve conversation history:
+
+```
+GET /npc/Blacksmith/history?limit=5
+```
+
+This returns the 5 most recent messages exchanged with the Blacksmith.
+
+## 👥 Relationship System
+
+The system tracks relationships between NPCs and with the player.
+
+### NPC-to-NPC Relationships
+
+```javascript
+"relationships": {
+  "Mayor": "Respectful",
+  "Innkeeper": "Friends",
+  "Guard": "Distrustful"
+}
+```
+
+### NPC-to-Player Relationship
+
+The player relationship is tracked separately with more detailed metrics:
+
+```javascript
+"player_relationship": {
+  "status": "friendly",
+  "affinity": 65,
+  "trust": 70,
+  "respect": 80,
+  "history": ["Player helped fix the forge", "Player delivered rare metals"]
+}
+```
+
+## 📊 Response Formats
+
+The system supports different response formats based on the prompt used.
+
+### Standard JSON Response
+
+Using the `jsonResponse` prompt:
+
+```json
+{
+  "message": "The capital of France is Paris.",
+  "details": {
+    "country": "France",
+    "capital": "Paris",
+    "location": "Western Europe"
+  }
+}
+```
+
+### Game Character Response
+
+Using the `gameCharacter` prompt:
+
+```json
+{
+  "reply": "Well met, traveler! Indeed I do! They say the old wizard on the hill has been acting strange lately.",
+  "playerResponseChoices": {
+    "1": "Tell me more about the wizard.",
+    "2": "What's this about the mayor's daughter?",
+    "3": "Any other news around town?"
+  },
+  "metadata": {
+    "mood": "cheerful",
+    "location": "The Golden Goose Inn",
+    "memory": "Player asked about gossip"
+  }
+}
+```
+
+## ⚙️ Configuration
+
+### Available Prompts
+
+| Prompt | Description | Use Case |
+|--------|-------------|----------|
+| `defaultBehaviour.txt` | Standard helpful assistant behavior | General AI interactions |
+| `jsonResponse.txt` | Forces responses in JSON format | Structured data responses |
+| `gameCharacter.txt` | Game character interactions with response choices | NPC conversations |
+| `gameAdmin.txt` | Emotionless game administrator | Managing game variables |
+| `jsonSchema.txt` | Structured JSON responses with schema validation | Complex data structures |
+| `context.txt` | World administrator character | Game world management |
+
+### Request Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
@@ -676,46 +848,88 @@ Deletes a specific game variable.
 | `stream` | Enable streaming response | `false` |
 | `response_format` | Format type (`text` or `json`) | `json` |
 | `prompt_name` | System prompt to use | `jsonResponse` |
-
-### NPC Chat Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
 | `history_limit` | Number of previous messages to include | `10` |
 | `system_message` | Custom system message (overrides prompt) | `null` |
 
-### Admin Command Options
+## 📝 Logging
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `temperature` | Lower temperature for more consistent responses | `0.3` |
+The system includes comprehensive logging:
 
-## Logging
+### Log Structure
 
-The API uses structured logging with the following levels:
-- `DEBUG`: Detailed debugging information
-- `INFO`: General information messages
-- `WARN`: Warning messages
-- `ERROR`: Error messages
+| Feature | Description |
+|---------|-------------|
+| **Session-based log files** | Each server session creates a new log file |
+| **Timestamps** | Each log entry includes a timestamp |
+| **Request IDs** | Each request gets a unique ID for tracking |
+| **Structured sections** | Logs are organized into clear sections |
+| **Multiple log levels** | INFO, DEBUG, ERROR, etc. |
+| **Periodic NPC logging** | Automatic logging of NPC state every 5 minutes |
 
-Set the `LOG_LEVEL` environment variable to control logging verbosity.
+### Log File Format
 
-### Log Files
-
-Logs are automatically written to session-based log files in the following format:
-- File naming: `YYYY-MM-DD_HHmm_SESSION-ID.log` (e.g., `2023-10-15_1423_a1b2c3d4.log` for a session started at 2:23 PM on October 15, 2023 with session ID a1b2c3d4)
-- Location: `./logs/` directory by default (configurable via `LOG_DIR` environment variable)
-- Format: `[timestamp] [level] [requestId] message`
-
-Each log file contains all logs generated during a single server session. A new log file is created each time the server starts, with a unique session ID to prevent conflicts. This makes it easy to track all activity within a specific server session.
+- **File naming**: `YYYY-MM-DD_HHmm_SESSION-ID.log`
+  - Example: `2025-04-28_0104_ab263418.log`
+- **Location**: `./logs/` directory (configurable via `LOG_DIR` environment variable)
+- **Format**: `[timestamp] [level] [requestId] message`
 
 ### AI Response Logging
 
-The complete AI response content is logged in the log files for both streaming and non-streaming responses. The response is clearly marked with:
+The complete AI response content is logged with clear markers:
 ```
 --- RESPONSE CONTENT START ---
 (Full AI response content here)
 --- RESPONSE CONTENT END ---
 ```
 
-This makes it easy to review and analyze AI responses for debugging, quality control, and compliance purposes. The logs also include detailed information about token usage, response time, and other metadata.
+This makes it easy to review AI responses for debugging and quality control.
+
+## 🏆 Best Practices
+
+### NPC Initialization
+
+- **Initialize NPCs individually**: Use `POST /npc` for each NPC rather than batch initialization
+- **Include unique identifiers**: Add an `actorId` field that matches your game's internal actor ID
+- **Avoid duplicate NPCs**: Check if an NPC exists before creating a new one with the same name
+
+### Conversation Management
+
+- **Limit history when needed**: Use the `history_limit` parameter to control context size
+- **Clear history when appropriate**: Use the DELETE endpoint to reset conversations
+- **Update relationship data**: The AI can suggest relationship updates in the metadata
+
+### Performance Optimization
+
+- **Use the right model**: `gpt-4o-mini` offers a good balance of quality and speed
+- **Adjust max_tokens**: Set appropriate limits based on expected response length
+- **Use non-streaming mode**: For most game interactions, non-streaming is more efficient
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Duplicate NPCs | Use `GET /npc/summary` to check for duplicates and remove them |
+| Missing conversation history | Verify the NPC ID or name is correct |
+| Invalid JSON responses | Check that the prompt is set to use JSON format |
+| High token usage | Reduce the history_limit parameter |
+| Slow responses | Consider using a faster model like gpt-3.5-turbo |
+
+### Debugging
+
+- Use the `/npc/debug/log` endpoint to log all NPC data
+- Check the log files in the `logs` directory
+- Enable DEBUG level logging for more detailed information
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgements
+
+- OpenAI for providing the API
+- Express.js for the web framework
+- The Unreal Engine community for inspiration and feedback
