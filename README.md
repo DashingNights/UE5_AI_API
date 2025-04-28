@@ -4,21 +4,25 @@ A lightweight, high-performance API service for integrating OpenAI's language mo
 
 ## 📋 Table of Contents
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Setup](#setup)
-- [API Reference](#api-reference)
-  - [AI Endpoints](#ai-endpoints)
-  - [NPC Endpoints](#npc-endpoints)
-  - [Admin Endpoints](#admin-endpoints)
-- [NPC System](#npc-system)
-- [Conversation Management](#conversation-management)
-- [Relationship System](#relationship-system)
-- [Response Formats](#response-formats)
-- [Configuration](#configuration)
-- [Logging](#logging)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
+- [✨ Features](#-features)
+- [🏗️ Architecture](#️-architecture)
+- [🚀 Setup](#-setup)
+- [📚 API Reference](#-api-reference)
+  - [Endpoint Overview](#endpoint-overview)
+  - [Health Check](#health-check)
+  - [AI Completion](#ai-completion)
+  - [NPC Management](#npc-management)
+  - [Game Administrator](#game-administrator)
+- [🧠 NPC System](#-npc-system)
+- [💬 Conversation Management](#-conversation-management)
+- [👥 Relationship System](#-relationship-system)
+- [📊 Response Formats](#-response-formats)
+- [⚙️ Configuration](#️-configuration)
+- [📝 Logging](#-logging)
+- [🏆 Best Practices](#-best-practices)
+- [🔧 Troubleshooting](#-troubleshooting)
+- [📄 License](#-license)
+- [🙏 Acknowledgements](#-acknowledgements)
 
 ## ✨ Features
 
@@ -62,14 +66,16 @@ The application follows a modular architecture:
 
 ### Key Components
 
-| Component | Description |
-|-----------|-------------|
-| **contextManager.js** | Manages NPC data, conversation history, and relationships |
-| **aiService.js** | Handles interactions with OpenAI API, including streaming and history management |
-| **promptManager.js** | Loads and caches system prompts for different use cases |
-| **logger.js** | Provides structured logging with session-based log files |
-| **npcRoutes.js** | Implements NPC-related API endpoints |
-| **responseFormatter.js** | Standardizes API response format |
+| Component | Description | File Path |
+|-----------|-------------|-----------|
+| **[contextManager.js](utils/contextManager.js)** | Manages NPC data, conversation history, and relationships | [utils/contextManager.js](utils/contextManager.js) |
+| **[aiService.js](services/aiService.js)** | Handles interactions with OpenAI API, including streaming and history management | [services/aiService.js](services/aiService.js) |
+| **[promptManager.js](utils/promptManager.js)** | Loads and caches system prompts for different use cases | [utils/promptManager.js](utils/promptManager.js) |
+| **[logger.js](utils/logger.js)** | Provides structured logging with session-based log files | [utils/logger.js](utils/logger.js) |
+| **[npcRoutes.js](routes/npcRoutes.js)** | Implements NPC-related API endpoints | [routes/npcRoutes.js](routes/npcRoutes.js) |
+| **[responseFormatter.js](utils/responseFormatter.js)** | Standardizes API response format | [utils/responseFormatter.js](utils/responseFormatter.js) |
+| **[aiRoutes.js](routes/aiRoutes.js)** | Implements AI-related API endpoints | [routes/aiRoutes.js](routes/aiRoutes.js) |
+| **[adminRoutes.js](routes/adminRoutes.js)** | Implements admin-related API endpoints | [routes/adminRoutes.js](routes/adminRoutes.js) |
 
 ## 🚀 Setup
 
@@ -120,21 +126,21 @@ This section provides a comprehensive reference for all available API endpoints.
 
 | Category | Endpoint | Method | Description |
 |----------|----------|--------|-------------|
-| **Health** | `/health` | GET | Check if the API is running |
-| **AI** | `/ai` | POST | Send a message to the AI |
-| **NPC** | `/npc` | POST | Initialize a single NPC |
-| **NPC** | `/npc/initialize` | POST | Initialize multiple NPCs (batch) |
-| **NPC** | `/npc/:npcIdOrName/chat` | POST | Chat with an NPC |
-| **NPC** | `/npc/:npcIdOrName/history` | GET | Get NPC conversation history |
-| **NPC** | `/npc/:npcIdOrName/history` | DELETE | Clear NPC conversation history |
-| **NPC** | `/npc/summary` | GET | Get summary of all NPCs |
-| **NPC** | `/npc/find` | GET | Find NPC by name |
-| **NPC** | `/npc/relationship` | GET | Get relationship between two NPCs |
-| **NPC** | `/npc/debug/log` | GET | Log all NPC data (debug) |
-| **Admin** | `/admin/command` | POST | Process game admin command |
-| **Admin** | `/admin/variables` | GET | Get all game variables |
-| **Admin** | `/admin/variables` | POST | Set game variables |
-| **Admin** | `/admin/variables/:key` | DELETE | Delete a game variable |
+| **Health** | [`/health`](#health-check) | GET | Check if the API is running |
+| **AI** | [`/ai`](#ai-completion) | POST | Send a message to the AI |
+| **NPC** | [`/npc`](#initialize-a-single-npc) | POST | Initialize a single NPC |
+| **NPC** | [`/npc/initialize`](#initialize-multiple-npcs-batch-method) | POST | Initialize multiple NPCs (batch) |
+| **NPC** | [`/npc/:npcIdOrName/chat`](#chat-with-npc) | POST | Chat with an NPC |
+| **NPC** | [`/npc/:npcIdOrName/history`](#get-npc-conversation-history) | GET | Get NPC conversation history |
+| **NPC** | [`/npc/:npcIdOrName/history`](#clear-npc-conversation-history) | DELETE | Clear NPC conversation history |
+| **NPC** | [`/npc/summary`](#get-all-npcs-summary) | GET | Get summary of all NPCs |
+| **NPC** | [`/npc/find`](#find-npc-by-name) | GET | Find NPC by name |
+| **NPC** | [`/npc/relationship`](#get-npc-relationship) | GET | Get relationship between two NPCs |
+| **NPC** | [`/npc/debug/log`](#debug-log-all-npc-data) | GET | Log all NPC data (debug) |
+| **Admin** | [`/admin/command`](#process-admin-command) | POST | Process game admin command |
+| **Admin** | [`/admin/variables`](#get-game-variables) | GET | Get all game variables |
+| **Admin** | [`/admin/variables`](#set-game-variables) | POST | Set game variables |
+| **Admin** | [`/admin/variables/:key`](#delete-game-variable) | DELETE | Delete a game variable |
 
 ## Detailed API Reference
 
@@ -154,6 +160,11 @@ Simple endpoint to verify the API is running.
 ### AI Completion
 
 General-purpose AI completion endpoint for standard AI interactions.
+
+| Endpoint | Method | Description | Link |
+|----------|--------|-------------|------|
+| `/ai` | POST | Send message to AI | [Details](#ai-completion) |
+| `/health` | GET | Health check | [Details](#health-check) |
 
 **Endpoint:** `POST /ai`
 
@@ -227,6 +238,18 @@ General-purpose AI completion endpoint for standard AI interactions.
 ### NPC Management
 
 This section covers all endpoints related to NPC management, including initialization, conversation, and relationship tracking.
+
+| Endpoint | Method | Description | Link |
+|----------|--------|-------------|------|
+| `/npc` | POST | Initialize a single NPC | [Details](#initialize-a-single-npc) |
+| `/npc/initialize` | POST | Initialize multiple NPCs | [Details](#initialize-multiple-npcs-batch-method) |
+| `/npc/:npcIdOrName/chat` | POST | Chat with an NPC | [Details](#chat-with-npc) |
+| `/npc/:npcIdOrName/history` | GET | Get conversation history | [Details](#get-npc-conversation-history) |
+| `/npc/:npcIdOrName/history` | DELETE | Clear conversation history | [Details](#clear-npc-conversation-history) |
+| `/npc/summary` | GET | Get all NPCs summary | [Details](#get-all-npcs-summary) |
+| `/npc/find` | GET | Find NPC by name | [Details](#find-npc-by-name) |
+| `/npc/relationship` | GET | Get NPC relationship | [Details](#get-npc-relationship) |
+| `/npc/debug/log` | GET | Log all NPC data | [Details](#debug-log-all-npc-data) |
 
 #### Initialize a Single NPC
 
@@ -561,6 +584,13 @@ This endpoint will write detailed information about all NPCs to the log file, in
 
 The Game Administrator is an emotionless system that manages game variables and state. It uses the `gameAdmin` prompt which produces structured, factual responses without character roleplay.
 
+| Endpoint | Method | Description | Link |
+|----------|--------|-------------|------|
+| `/admin/command` | POST | Process admin command | [Details](#process-admin-command) |
+| `/admin/variables` | GET | Get game variables | [Details](#get-game-variables) |
+| `/admin/variables` | POST | Set game variables | [Details](#set-game-variables) |
+| `/admin/variables/:key` | DELETE | Delete game variable | [Details](#delete-game-variable) |
+
 #### Process Admin Command
 
 Sends a command to the game administrator to manage game variables and state.
@@ -878,14 +908,14 @@ Using the `gameCharacter` prompt:
 
 ### Available Prompts
 
-| Prompt | Description | Use Case |
-|--------|-------------|----------|
-| `defaultBehaviour.txt` | Standard helpful assistant behavior | General AI interactions |
-| `jsonResponse.txt` | Forces responses in JSON format | Structured data responses |
-| `gameCharacter.txt` | Game character interactions with response choices | NPC conversations |
-| `gameAdmin.txt` | Emotionless game administrator | Managing game variables |
-| `jsonSchema.txt` | Structured JSON responses with schema validation | Complex data structures |
-| `context.txt` | World administrator character | Game world management |
+| Prompt | Description | Use Case | Location |
+|--------|-------------|----------|----------|
+| [`defaultBehaviour.txt`](prompts/defaultBehaviour.txt) | Standard helpful assistant behavior | General AI interactions | [prompts/defaultBehaviour.txt](prompts/defaultBehaviour.txt) |
+| [`jsonResponse.txt`](prompts/jsonResponse.txt) | Forces responses in JSON format | Structured data responses | [prompts/jsonResponse.txt](prompts/jsonResponse.txt) |
+| [`gameCharacter.txt`](prompts/gameCharacter.txt) | Game character interactions with response choices | NPC conversations | [prompts/gameCharacter.txt](prompts/gameCharacter.txt) |
+| [`gameAdmin.txt`](prompts/gameAdmin.txt) | Emotionless game administrator | Managing game variables | [prompts/gameAdmin.txt](prompts/gameAdmin.txt) |
+| [`jsonSchema.txt`](prompts/jsonSchema.txt) | Structured JSON responses with schema validation | Complex data structures | [prompts/jsonSchema.txt](prompts/jsonSchema.txt) |
+| [`context.txt`](prompts/context.txt) | World administrator character | Game world management | [prompts/context.txt](prompts/context.txt) |
 
 ### Request Options
 
