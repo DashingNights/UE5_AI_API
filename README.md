@@ -1,4 +1,4 @@
-# UE5 AI API Service
+# UE5 OpenAI API Service
 
 A lightweight, high-performance API service for integrating OpenAI's language models with Unreal Engine 5 games. This service provides standardized JSON responses, NPC conversation management, and relationship tracking with minimal token footprint.
 
