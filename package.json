@@ -1,8 +1,11 @@
 {
-  "name": "express-server",
+  "name": "ue5-openai-api-service",
   "version": "1.0.0",
-  "description": "Basic Express server",
+  "description": "A lightweight API service for integrating OpenAI with Unreal Engine 5",
   "main": "server.js",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "author": "Argus <argus@lustrecrew.net>",
   "scripts": {
     "start": "node server.js"
   },

@@ -1,6 +1,8 @@
 # UE5 OpenAI API Service
 
-A lightweight, high-performance API service for integrating OpenAI's language models with Unreal Engine 5 games. This service provides standardized JSON responses, NPC conversation management, and relationship tracking with minimal token footprint.
+A powerful AI middleware for Unreal Engine 5 that brings NPCs to life with advanced relationship networks, persistent memory, and contextual awareness. Create believable characters that remember conversations, form relationships with players and other NPCs, and respond intelligently based on their social connections and history.
+
+> **⚠️ LICENSE NOTICE**: This software is available for private, non-commercial use only. See the [LICENSE](LICENSE) file for details.
 
 ## 📋 Table of Contents
 
@@ -27,15 +29,28 @@ A lightweight, high-performance API service for integrating OpenAI's language mo
 
 ## ✨ Features
 
+### 🧠 Advanced NPC Intelligence
+
+- **Social Relationship Networks**: NPCs maintain detailed relationships with players and other NPCs, including relationship types, history, and mutual connections
+- **Relationship Discovery**: Automatically discovers and maps connections between NPCs, including indirect relationships through mutual acquaintances
+- **Contextual Memory**: NPCs remember past conversations, player actions, and significant events
+- **Emotional Intelligence**: NPCs respond differently based on their relationship with the player and other characters
+- **Personality Persistence**: Characters maintain consistent personalities and knowledge across multiple interactions
+
+### 🔄 Seamless Integration
+
 - **Standardized JSON Response Format**: Consistent, structured responses for easy integration with Unreal Engine
 - **Multiple System Prompts**: Different prompt templates for various use cases (NPCs, JSON responses, etc.)
-- **NPC Conversation Management**: Track and maintain conversation history for each NPC
-- **Relationship System**: Model relationships between NPCs and with the player
-- **Session-Based Memory**: NPCs remember previous conversations within the same session
+- **Unreal-Fetch Compatible**: Optimized for use with the Unreal-Fetch plugin
+- **Streaming Support**: Optional streaming responses for real-time text generation
 - **Configurable Response Formats**: Choose between text or structured JSON responses
+
+### ⚙️ Robust Architecture
+
+- **NPC Conversation Management**: Track and maintain conversation history for each NPC
+- **Detailed Relationship Metadata**: Store rich context about each relationship including descriptions, personalities, and locations
 - **Comprehensive Logging**: Detailed logs with timestamps and message content
 - **Token Usage Optimization**: Minimize token usage for cost-effective operation
-- **Streaming Support**: Optional streaming responses for real-time text generation
 - **Modular Architecture**: Well-organized codebase for easy maintenance and extension
 
 ## 🏗️ Architecture
@@ -768,32 +783,105 @@ The NPC system manages game characters with rich metadata and conversation histo
 
 > **Note**: The `history` array in player_relationship stores significant milestones in the relationship, not every conversation message.
 
-## 💬 Conversation Management
+## 💬 Conversation Management & Memory
 
-The system maintains conversation history for each NPC, allowing them to remember previous interactions within the same session.
+The system provides NPCs with persistent memory and contextual awareness, allowing them to recall past conversations and maintain consistent personalities across multiple interactions.
 
-### Conversation Storage
+### 🧠 Persistent Memory System
 
-- Each NPC has a dedicated conversation history array
-- Messages are stored with timestamps and role information (player or NPC)
-- By default, the 10 most recent messages are included in the context for AI responses
-- The history limit can be customized with the `history_limit` parameter
+NPCs remember their interactions with the player and can reference them in future conversations:
 
-### Getting Conversation History
+- **Conversation Recall**: NPCs remember what was discussed in previous conversations
+- **Event Memory**: NPCs remember significant events and player actions
+- **Contextual References**: NPCs can refer back to previous topics naturally
+- **Personality Consistency**: NPCs maintain consistent character traits across interactions
+- **Relationship Evolution**: NPC relationships evolve based on conversation history
 
-Use the `GET /npc/:npcIdOrName/history` endpoint to retrieve conversation history:
+### 📝 Memory Storage Architecture
+
+The memory system uses a sophisticated architecture to maintain context:
+
+- **Dedicated History Per NPC**: Each NPC has their own isolated conversation history
+- **Timestamped Interactions**: All messages are stored with precise timestamps
+- **Role Identification**: Messages are tagged as player or NPC for clear context
+- **Metadata Enrichment**: Conversations include contextual metadata about the NPC's state
+- **Session Persistence**: Memory persists throughout the game session
+
+### ⚙️ Memory Configuration
+
+Fine-tune how NPCs use their memory:
+
+- **Adjustable Memory Depth**: Control how far back NPCs remember with the `history_limit` parameter
+- **Memory Prioritization**: The system automatically prioritizes significant interactions
+- **Memory Reset**: Clear an NPC's memory when appropriate with the history deletion endpoint
+- **Memory Inspection**: Examine what an NPC remembers through the history retrieval endpoint
+
+### 🔍 Accessing NPC Memory
+
+Retrieve an NPC's conversation history programmatically:
 
 ```
 GET /npc/Blacksmith/history?limit=5
 ```
 
-This returns the 5 most recent messages exchanged with the Blacksmith.
+This returns the 5 most recent interactions with the Blacksmith, including:
+- The exact messages exchanged
+- When each message was sent
+- Who said what (player vs. NPC)
+
+### 📊 Memory in Action
+
+When a player returns to an NPC after previous interactions:
+
+```
+Player: "Hello again!"
+
+Blacksmith: "Ah, welcome back! Last time you were asking about that enchanted sword.
+Have you gathered those rare materials I mentioned? I remember you said you were
+heading to the northern mountains to look for them."
+```
+
+The NPC seamlessly recalls:
+- Previous conversation topics
+- Pending quests or tasks
+- Player's stated intentions
+- The relationship context
 
 ## 👥 Relationship System
 
-The system tracks relationships between NPCs and with the player.
+The system features a sophisticated social network that models complex relationships between NPCs and with the player, creating a living, interconnected world.
 
-### NPC-to-NPC Relationships
+### 🌐 Social Network Mapping
+
+NPCs maintain a rich web of relationships that influence their behavior, dialogue, and decision-making:
+
+- **Direct Relationships**: Explicit connections between characters
+- **Indirect Relationships**: "Friend-of-a-friend" connections discovered automatically
+- **Relationship Types**: Friendships, rivalries, family ties, professional associations, etc.
+- **Relationship Qualities**: Mutual relationships, conflicting relationships, one-sided relationships
+- **Relationship History**: Significant events and interactions that shaped the relationship
+
+### 🔍 Enhanced Relationship Context
+
+Each relationship includes detailed metadata about the related character:
+
+```javascript
+{
+  "name": "Mayor",
+  "description": "The elected leader of the village",
+  "personality": "Stern but fair",
+  "faction": "Village Council",
+  "location": "Town Hall",
+  "currentState": "Reviewing tax records",
+  "relationship": "Respectful",
+  "mutual": true,
+  "reverse_relationship": "Reliable"
+}
+```
+
+### 🤝 NPC-to-NPC Relationships
+
+NPCs maintain relationships with other characters in the world:
 
 ```javascript
 "relationships": {
@@ -803,7 +891,7 @@ The system tracks relationships between NPCs and with the player.
 }
 ```
 
-### NPC-to-Player Relationship
+### 👤 NPC-to-Player Relationship
 
 The player relationship is tracked separately with more detailed metrics:
 
@@ -817,27 +905,36 @@ The player relationship is tracked separately with more detailed metrics:
 }
 ```
 
-### Relationship Discovery
+### 🔄 Automatic Relationship Discovery
 
-The system can automatically discover and analyze relationships between NPCs, including:
+The system intelligently maps the social network by:
 
-1. **Direct Relationships**: Explicit relationships defined in NPC data
-2. **Indirect Relationships**: Connections through mutual acquaintances
-3. **Relationship Analysis**: Identifying mutual and conflicting relationships
+1. **Analyzing Direct Connections**: Identifying explicit relationships in NPC data
+2. **Finding Common Connections**: Discovering shared relationships between NPCs
+3. **Mapping Indirect Relationships**: Creating "friend-of-a-friend" connections
+4. **Identifying Relationship Patterns**: Detecting mutual, conflicting, and one-sided relationships
+5. **Building Relationship Context**: Enriching relationships with detailed character metadata
 
-#### Automatic Discovery
+#### Discovery Triggers
 
-Relationship discovery runs automatically in the background every 10 minutes (configurable).
+Relationship discovery happens:
 
-#### On-Demand Discovery
+- **During Chat**: Automatically before generating NPC responses (configurable)
+- **Periodically**: Background refresh every 10 minutes (configurable)
+- **On Demand**: Through dedicated API endpoints
 
-Relationship discovery is enabled by default during chat, but you can also:
+#### Relationship-Aware Conversations
 
-1. **Disable During Chat**: Add `discover_relationships: false` to the chat options
-2. **Manual Trigger**: Call the `/npc/discover-relationships` endpoint
-3. **For a Specific NPC**: Use the `/npc/:npcIdOrName/relationships` endpoint
+When an NPC discusses another character, they have access to:
 
-#### Example Chat with Relationship Discovery
+```
+"I know the Mayor is a stern but fair leader of the Village Council.
+He's usually at Town Hall reviewing tax records. I have a respectful
+relationship with him, and he considers me reliable. He's also
+connected to the Innkeeper, who I'm friends with."
+```
+
+#### Example: Asking About Relationships
 
 ```json
 {
@@ -845,23 +942,27 @@ Relationship discovery is enabled by default during chat, but you can also:
   "options": {
     "model": "gpt-4o-mini",
     "temperature": 0.7
-    // discover_relationships is true by default
   }
 }
 ```
 
-This will automatically trigger a fresh relationship discovery before generating the NPC's response, ensuring they have the most up-to-date information about their connections to other NPCs.
+This triggers relationship discovery, providing the NPC with rich context about:
+- Their direct relationship with the Innkeeper
+- The Innkeeper's detailed metadata (personality, location, etc.)
+- Mutual connections they share with the Innkeeper
+- The Innkeeper's relationship with the player
 
-#### Disabling Relationship Discovery
+#### Advanced Control
 
-If you want to disable relationship discovery for a specific chat (for performance reasons):
+Fine-tune relationship discovery with options:
 
 ```json
 {
   "message": "Hello there!",
   "options": {
     "model": "gpt-4o-mini",
-    "discover_relationships": false
+    "discover_relationships": false,  // Disable for this interaction
+    "relationship_depth": 2           // How many degrees of separation to explore
   }
 }
 ```
@@ -1088,7 +1189,7 @@ For Blueprint implementation, Unreal-Fetch provides nodes for all these operatio
 | Missing conversation history | Verify the NPC ID or name is correct |
 | Invalid JSON responses | Check that the prompt is set to use JSON format |
 | High token usage | Reduce the history_limit parameter |
-| Slow responses | Consider using a faster model like gpt-3.5-turbo |
+| Slow responses | Consider using a faster model like gpt-4o-mini |
 
 ### Debugging
 
@@ -1100,7 +1201,22 @@ For Blueprint implementation, Unreal-Fetch provides nodes for all these operatio
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under a custom **Non-Commercial License** - see the [LICENSE](LICENSE) file for details.
+
+### License Summary
+
+- ✅ **Allowed**: Private, personal use
+- ✅ **Allowed**: Educational and academic use
+- ✅ **Allowed**: Non-profit organization use
+- ✅ **Allowed**: Evaluation and testing
+- ✅ **Allowed**: Creating derivative works for non-commercial purposes
+- ❌ **Not Allowed**: Commercial use of any kind
+- ❌ **Not Allowed**: Using in commercial products or services
+- ❌ **Not Allowed**: Using in for-profit organizations
+
+### Commercial Licensing
+
+If you wish to use this software for commercial purposes, please contact [ceo@lustrecrew.net](mailto:ceo@lustrecrew.net) to inquire about commercial licensing options.
 
 ## 🙏 Acknowledgements
 
