@@ -786,6 +786,55 @@ The player relationship is tracked separately with more detailed metrics:
 }
 ```
 
+### Relationship Discovery
+
+The system can automatically discover and analyze relationships between NPCs, including:
+
+1. **Direct Relationships**: Explicit relationships defined in NPC data
+2. **Indirect Relationships**: Connections through mutual acquaintances
+3. **Relationship Analysis**: Identifying mutual and conflicting relationships
+
+#### Automatic Discovery
+
+Relationship discovery runs automatically in the background every 10 minutes (configurable).
+
+#### On-Demand Discovery
+
+Relationship discovery is enabled by default during chat, but you can also:
+
+1. **Disable During Chat**: Add `discover_relationships: false` to the chat options
+2. **Manual Trigger**: Call the `/npc/discover-relationships` endpoint
+3. **For a Specific NPC**: Use the `/npc/:npcIdOrName/relationships` endpoint
+
+#### Example Chat with Relationship Discovery
+
+```json
+{
+  "message": "What do you think about the Innkeeper?",
+  "options": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.7
+    // discover_relationships is true by default
+  }
+}
+```
+
+This will automatically trigger a fresh relationship discovery before generating the NPC's response, ensuring they have the most up-to-date information about their connections to other NPCs.
+
+#### Disabling Relationship Discovery
+
+If you want to disable relationship discovery for a specific chat (for performance reasons):
+
+```json
+{
+  "message": "Hello there!",
+  "options": {
+    "model": "gpt-4o-mini",
+    "discover_relationships": false
+  }
+}
+```
+
 ## 📊 Response Formats
 
 The system supports different response formats based on the prompt used.
@@ -850,6 +899,7 @@ Using the `gameCharacter` prompt:
 | `prompt_name` | System prompt to use | `jsonResponse` |
 | `history_limit` | Number of previous messages to include | `10` |
 | `system_message` | Custom system message (overrides prompt) | `null` |
+| `discover_relationships` | Trigger relationship discovery before chat | `true` |
 
 ## 📝 Logging
 
