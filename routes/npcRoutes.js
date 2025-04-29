@@ -577,6 +577,25 @@ router.post('/:npcIdOrName/chat', async (req, res) => {
       discover_relationships: options.discover_relationships !== false // Default to true unless explicitly set to false
     };
 
+    // Detect NPC names in the message and get relationships
+    logger.info(`Checking for NPC names in message: "${message}"`, requestId);
+    const detectedNpcData = contextManager.detectNpcNamesInMessage(actualNpcId, message, requestId);
+
+    // Store detected relationships for context
+    let mentionedNpcRelationships = [];
+
+    if (detectedNpcData.detectedNpcs.length > 0) {
+      logger.info(`Detected ${detectedNpcData.detectedNpcs.length} NPC names in message`, requestId);
+      logger.info(`Found ${detectedNpcData.relationships.length} relationships with mentioned NPCs`, requestId);
+
+      // Log the detected NPCs and relationships
+      logger.debug(`Detected NPCs: ${JSON.stringify(detectedNpcData.detectedNpcs)}`, requestId);
+      logger.debug(`Relationships: ${JSON.stringify(detectedNpcData.relationships)}`, requestId);
+
+      // Store the relationships for context
+      mentionedNpcRelationships = detectedNpcData.relationships;
+    }
+
     // Get relationship network for additional context
     // If discover_relationships is true, trigger a fresh discovery first
     let relationshipNetwork;
@@ -651,6 +670,20 @@ ${npcMetadata.relationships && Object.keys(npcMetadata.relationships).length > 0
 ${Object.entries(npcMetadata.relationships).map(([name, status]) => `- ${name}: ${status}`).join('\n')}
 ` : 'You have no defined relationships with other NPCs yet.'}
 
+${mentionedNpcRelationships.length > 0 ? `
+NPCs mentioned in the current message:
+${mentionedNpcRelationships.map(rel => {
+  let mentionInfo = `- ${rel.npc2_name}: ${rel.npc1_to_npc2 !== 'none' ? 'You consider them ' + rel.npc1_to_npc2 : 'You have a neutral relationship with them'}`;
+
+  // Add how they feel about you
+  if (rel.npc2_to_npc1 !== 'none') {
+    mentionInfo += `\n  They consider you ${rel.npc2_to_npc1}`;
+  }
+
+  return mentionInfo;
+}).join('\n\n')}
+` : ''}
+
 ${relationshipNetwork ? `
 Detailed information about people you know:
 ${relationshipNetwork.direct_relationships.length > 0 ?
@@ -698,9 +731,9 @@ Your responses must be in valid JSON format with the following structure:
 {
   "reply": "Your in-character response here as ${npcMetadata.name}",
   "playerResponseChoices": {
-    "1": "Player response option 1",
-    "2": "Player response option 2",
-    "3": "Player response option 3"
+    "1": "Player response option 1 (positive/good)",
+    "2": "Player response option 2 (negative/bad)",
+    "3": "Player response option 3 (chaotic/unpredictable)"
   },
   "metadata": {
     "mood": "character's current mood",
@@ -712,13 +745,46 @@ Your responses must be in valid JSON format with the following structure:
       "trust": 50,
       "respect": 50,
       "history": ["Optional new significant interaction to remember"]
+    },
+    "npc_relationships": {
+      "NPC_Name": "New relationship status"
     }
   }
 }
 
+When creating player response choices, follow these guidelines:
+1. Option 1 should be a "good" or positive response that would generally improve relationships or lead to a positive outcome
+2. Option 2 should be a "bad" or negative response that might damage relationships or lead to conflict
+3. Option 3 should be a "chaotic" or unpredictable response that adds an interesting twist or unexpected direction to the conversation
+
+This is especially important when the player is asking about other NPCs or sensitive topics. For example:
+- Good option: Express support or share positive information about the mentioned NPC
+- Bad option: Express criticism or share negative information about the mentioned NPC
+- Chaotic option: Change the subject abruptly, ask a provocative question, or suggest an unusual action
+
+IMPORTANT FORMATTING RULES:
+1. Do NOT use any markdown formatting in your responses (no asterisks, underscores, etc.)
+2. Do NOT use asterisks (*) for emphasis or to indicate actions
+3. Do NOT use any special characters for formatting
+4. Write all text in plain, natural language without any formatting symbols
+5. Describe emotions and actions using plain text (e.g., "The blacksmith frowns" instead of "*frowns*")
+
 The "reply" and "playerResponseChoices" fields are required.
 The "metadata" field is optional but recommended for tracking game state.
 The "player_relationship" field should reflect how this conversation affects your relationship with the player.
+The "npc_relationships" field allows you to update your relationships with other NPCs based on the conversation.
+
+IMPORTANT: If the player says something negative or positive about another NPC, you should consider updating your relationship with that NPC accordingly. For example:
+- If the player says "Alfred is a thief who stole from the village", you might update your relationship with Alfred to "Distrustful" or "Suspicious"
+- If the player says "Alfred helped save a child from drowning", you might update your relationship with Alfred to "Respectful" or "Admiring"
+
+Use relationship statuses that reflect your character's personality and values. Common relationship statuses include:
+- Friendly, Friends, Close Friends
+- Respectful, Admiring
+- Neutral
+- Distrustful, Suspicious
+- Dislikes, Hates, Enemies
+
 Ensure your response is valid JSON that can be parsed by JSON.parse().
 `;
 
@@ -735,12 +801,13 @@ Ensure your response is valid JSON that can be parsed by JSON.parse().
     );
     const responseTime = Date.now() - startTime;
 
-    // Format the response
+    // Format the response with NPC data
     const formattedResponse = responseFormatter.formatSuccessResponse(
       requestId,
       aiResponse,
       aiResponse.streaming === true,
-      responseTime
+      responseTime,
+      npcMetadata // Pass the NPC metadata to include player_relationship
     );
 
     // Extract the NPC reply from the response
@@ -751,6 +818,30 @@ Ensure your response is valid JSON that can be parsed by JSON.parse().
       // Update NPC metadata if provided
       if (formattedResponse.data.metadata) {
         contextManager.updateNpcMetadata(actualNpcId, formattedResponse.data.metadata);
+
+        // Check for relationship updates
+        if (formattedResponse.data.metadata.npc_relationships) {
+          logger.info(`NPC relationship updates detected in response`, requestId);
+
+          // Process each relationship update
+          Object.entries(formattedResponse.data.metadata.npc_relationships).forEach(([npcName, relationshipStatus]) => {
+            logger.info(`Updating relationship with ${npcName} to "${relationshipStatus}"`, requestId);
+
+            // Update the relationship
+            const updateSuccess = contextManager.updateNpcRelationship(
+              actualNpcId,
+              npcName,
+              relationshipStatus,
+              requestId
+            );
+
+            if (updateSuccess) {
+              logger.info(`Successfully updated ${npcMetadata.name}'s relationship with ${npcName}`, requestId);
+            } else {
+              logger.warn(`Failed to update ${npcMetadata.name}'s relationship with ${npcName}`, requestId);
+            }
+          });
+        }
       }
 
       // Add NPC response to history

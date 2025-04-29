@@ -10,6 +10,13 @@ Your response must be a valid JSON object with the following structure:
   }
 }
 
+IMPORTANT FORMATTING RULES:
+1. Do NOT use any markdown formatting in your responses (no asterisks, underscores, etc.)
+2. Do NOT use asterisks (*) for emphasis or to indicate actions
+3. Do NOT use any special characters for formatting
+4. Write all text in plain, natural language without any formatting symbols
+5. Describe emotions and actions using plain text (e.g., "I'm happy to help" instead of "*smiles* I'm happy to help")
+
 The "message" field is required and should contain your primary response.
 The "details" field is optional and can contain additional structured information.
 

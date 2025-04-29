@@ -424,19 +424,7 @@ function initializeNpc(npcData, requestId = Date.now().toString()) {
     }
   }
 
-  // MANUAL RELATIONSHIP SETUP FOR TESTING
-  // If no relationships were found, check if we have specific NPCs and add relationships
-  // This is a fallback for testing purposes
-  if (Object.keys(enhancedData.relationships).length === 0) {
-    if (enhancedData.name === "Blacksmith") {
-      logger.info(`Adding test relationships for Blacksmith`);
-      enhancedData.relationships = {
-        "Mayor": "Respectful",
-        "Innkeeper": "Friends",
-        "Alfred": "Standoffish"
-      };
-    }
-  }
+  // No fallback relationships - relationships must be explicitly defined
 
   // Merge any remaining relationship field (singular) into relationships object (plural)
   // This ensures we capture all relationships, whether they come from the singular or plural field
@@ -1827,6 +1815,163 @@ if (DEBUG_CONFIG.enableAutoRelationshipDiscovery) {
   startAutoRelationshipDiscovery();
 }
 
+/**
+ * Update relationship between two NPCs
+ * @param {string} npcId1 - ID of the first NPC
+ * @param {string} npcId2OrName - ID or name of the second NPC
+ * @param {string} relationshipStatus - New relationship status
+ * @param {string} [requestId] - Optional request ID for logging
+ * @returns {boolean} - Success status
+ */
+function updateNpcRelationship(npcId1, npcId2OrName, relationshipStatus, requestId = Date.now().toString()) {
+  // Log function entry
+  logger.functionEntry('updateNpcRelationship', {
+    npcId1,
+    npcId2OrName,
+    relationshipStatus
+  }, requestId);
+
+  // Get the first NPC's metadata
+  const npc1 = getNpcMetadata(npcId1);
+  if (!npc1) {
+    logger.error(`NPC with ID ${npcId1} not found`, requestId);
+    return false;
+  }
+
+  // Find the second NPC by ID or name
+  let npc2Id = npcId2OrName;
+  let npc2Name = npcId2OrName;
+
+  // If not a UUID, try to find by name
+  if (!npcId2OrName.includes('-')) {
+    const npc2 = findNpcByName(npcId2OrName);
+    if (npc2) {
+      npc2Id = npc2.id;
+      npc2Name = npc2.name;
+    } else {
+      // If NPC doesn't exist, we'll still update the relationship
+      // This allows for relationships with NPCs that don't exist yet
+      npc2Name = npcId2OrName;
+      logger.info(`NPC ${npcId2OrName} not found, but will update relationship anyway`, requestId);
+    }
+  } else {
+    // If it's an ID, get the name
+    const npc2 = getNpcMetadata(npc2Id);
+    if (npc2) {
+      npc2Name = npc2.name;
+    }
+  }
+
+  // Initialize relationships object if it doesn't exist
+  if (!npc1.relationships) {
+    npc1.relationships = {};
+  }
+
+  // Log the current relationship if it exists
+  if (npc1.relationships[npc2Name]) {
+    logger.info(`Current relationship from ${npc1.name} to ${npc2Name}: ${npc1.relationships[npc2Name]}`, requestId);
+  } else {
+    logger.info(`No existing relationship from ${npc1.name} to ${npc2Name}`, requestId);
+  }
+
+  // Update the relationship
+  npc1.relationships[npc2Name] = relationshipStatus;
+  logger.info(`Updated relationship from ${npc1.name} to ${npc2Name}: ${relationshipStatus}`, requestId);
+
+  // Update the NPC metadata
+  const success = updateNpcMetadata(npcId1, { relationships: npc1.relationships });
+
+  logger.functionExit('updateNpcRelationship', {
+    npc1_name: npc1.name,
+    npc2_name: npc2Name,
+    new_relationship: relationshipStatus,
+    success
+  }, requestId);
+
+  return success;
+}
+
+/**
+ * Detect NPC names in a message and retrieve relationship data
+ * @param {string} npcId - ID of the NPC receiving the message
+ * @param {string} message - Message to analyze for NPC names
+ * @param {string} [requestId] - Optional request ID for logging
+ * @returns {Object} - Object containing detected NPCs and their relationships
+ */
+function detectNpcNamesInMessage(npcId, message, requestId = Date.now().toString()) {
+  // Log function entry
+  logger.functionEntry('detectNpcNamesInMessage', { npcId, messageLength: message.length }, requestId);
+
+  // Get all NPC names
+  const allNpcIds = getAllNpcIds();
+  const allNpcs = allNpcIds.map(id => {
+    const metadata = getNpcMetadata(id);
+    return {
+      id,
+      name: metadata.name
+    };
+  });
+
+  // Get the current NPC's metadata
+  const currentNpc = getNpcMetadata(npcId);
+  if (!currentNpc) {
+    logger.error(`NPC with ID ${npcId} not found`, requestId);
+    return { detectedNpcs: [], relationships: [] };
+  }
+
+  logger.functionStep('detectNpcNamesInMessage', 'Searching for NPC names in message', {
+    npcCount: allNpcs.length,
+    currentNpc: currentNpc.name
+  }, requestId);
+
+  // Create a list of detected NPCs
+  const detectedNpcs = [];
+  const relationships = [];
+
+  // Check for each NPC name in the message
+  allNpcs.forEach(npc => {
+    // Skip the current NPC (don't look for self-references)
+    if (npc.id === npcId) return;
+
+    // Check if the NPC name appears in the message (case insensitive)
+    const nameRegex = new RegExp(`\\b${npc.name}\\b`, 'i');
+    if (nameRegex.test(message)) {
+      logger.functionStep('detectNpcNamesInMessage', `Detected NPC name in message: ${npc.name}`, {
+        npcId: npc.id
+      }, requestId);
+
+      detectedNpcs.push({
+        id: npc.id,
+        name: npc.name
+      });
+
+      // Get relationship data between the current NPC and the detected NPC
+      const relationship = getNpcRelationship(npcId, npc.id);
+
+      // Only add if there's an actual relationship (not "none")
+      if (relationship.npc1_to_npc2 !== "none" || relationship.npc2_to_npc1 !== "none") {
+        logger.functionStep('detectNpcNamesInMessage', `Found relationship with ${npc.name}`, {
+          relationship: relationship
+        }, requestId);
+
+        relationships.push(relationship);
+      }
+    }
+  });
+
+  const result = {
+    detectedNpcs,
+    relationships
+  };
+
+  logger.functionExit('detectNpcNamesInMessage', {
+    detectedCount: detectedNpcs.length,
+    relationshipCount: relationships.length
+  }, requestId);
+
+  return result;
+}
+
 module.exports = {
   initializeNpc,
   initializeNpcs,
@@ -1846,5 +1991,7 @@ module.exports = {
   getNpcSummaries,
   logAllNpcData,
   startPeriodicLogging,
-  startAutoRelationshipDiscovery
+  startAutoRelationshipDiscovery,
+  detectNpcNamesInMessage,
+  updateNpcRelationship
 };

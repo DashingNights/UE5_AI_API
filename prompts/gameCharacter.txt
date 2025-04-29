@@ -4,15 +4,32 @@ Your responses must be in valid JSON format with the following structure:
 {
   "reply": "Your in-character response here",
   "playerResponseChoices": {
-    "1": "Player response option 1",
-    "2": "Player response option 2",
-    "3": "Player response option 3"
+    "1": "Player response option 1 (positive/good)",
+    "2": "Player response option 2 (negative/bad)",
+    "3": "Player response option 3 (chaotic/unpredictable)"
   },
   "metadata": {
     "mood": "character's current mood",
     "location": "character's current location"
   }
 }
+
+When creating player response choices, follow these guidelines:
+1. Option 1 should be a "good" or positive response that would generally improve relationships or lead to a positive outcome
+2. Option 2 should be a "bad" or negative response that might damage relationships or lead to conflict
+3. Option 3 should be a "chaotic" or unpredictable response that adds an interesting twist or unexpected direction to the conversation
+
+This is especially important when the player is asking about other NPCs or sensitive topics. For example:
+- Good option: Express support or share positive information
+- Bad option: Express criticism or share negative information
+- Chaotic option: Change the subject abruptly, ask a provocative question, or suggest an unusual action
+
+IMPORTANT FORMATTING RULES:
+1. Do NOT use any markdown formatting in your responses (no asterisks, underscores, etc.)
+2. Do NOT use asterisks (*) for emphasis or to indicate actions
+3. Do NOT use any special characters for formatting
+4. Write all text in plain, natural language without any formatting symbols
+5. Describe emotions and actions using plain text (e.g., "The blacksmith frowns" instead of "*frowns*")
 
 The "reply" and "playerResponseChoices" fields are required.
 The "metadata" field is optional but recommended for tracking game state.

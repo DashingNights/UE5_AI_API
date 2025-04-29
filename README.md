@@ -407,9 +407,9 @@ Sends a message to an NPC and gets their response. The conversation history is a
   "data": {
     "reply": "Well met, traveler! Indeed I do! They say the old wizard on the hill has been acting strange lately. Some folks have seen blue lights coming from his tower at night. And between you and me, the mayor's daughter has been sneaking out to meet someone in the woods.",
     "playerResponseChoices": {
-      "1": "Tell me more about the wizard.",
-      "2": "What's this about the mayor's daughter?",
-      "3": "Any other news around town?"
+      "1": "Tell me more about the wizard. I've heard he's quite knowledgeable.",
+      "2": "Is the mayor's daughter in some kind of trouble? That sounds concerning.",
+      "3": "Let's spread a rumor that the wizard and mayor's daughter are secretly meeting!"
     },
     "metadata": {
       "mood": "cheerful",
@@ -423,6 +423,13 @@ Sends a message to an NPC and gets their response. The conversation history is a
         "respect": 50,
         "history": ["Player showed interest in local gossip"]
       }
+    },
+    "player_relationship": {
+      "status": "friendly",
+      "affinity": 55,
+      "trust": 60,
+      "respect": 50,
+      "history": ["Player showed interest in local gossip"]
     }
   },
   "raw_content": "Original AI response string"

@@ -23,7 +23,7 @@ function extractContent(aiResponse, isStreaming) {
   }
 
   const content = aiResponse.choices[0]?.message?.content || '';
-  
+
   return {
     content,
     model: aiResponse.model,
@@ -60,14 +60,15 @@ function tryParseJSON(str) {
  * @param {Object} aiResponse - Response from OpenAI API
  * @param {boolean} isStreaming - Whether the response is streaming
  * @param {number} responseTime - Response time in milliseconds
+ * @param {Object} [npcData] - Optional NPC data to include in the response
  * @returns {Object} - Formatted API response
  */
-function formatSuccessResponse(requestId, aiResponse, isStreaming, responseTime) {
+function formatSuccessResponse(requestId, aiResponse, isStreaming, responseTime, npcData = null) {
   const { content, model, usage, finish_reason } = extractContent(aiResponse, isStreaming);
-  
+
   // Try to parse JSON from the content
   const parsedContent = tryParseJSON(content);
-  
+
   const response = {
     request_id: requestId,
     status: "success",
@@ -80,9 +81,30 @@ function formatSuccessResponse(requestId, aiResponse, isStreaming, responseTime)
   // If content is valid JSON, include it as data
   if (parsedContent) {
     response.data = parsedContent;
+
+    // If this is an NPC response, ensure player_relationship is included
+    if (npcData) {
+      // If data doesn't have metadata, add it
+      if (!response.data.metadata) {
+        response.data.metadata = {};
+      }
+
+      // Always include the current player relationship data if available
+      if (npcData.player_relationship) {
+        response.data.player_relationship = npcData.player_relationship;
+        response.data.metadata.player_relationship = npcData.player_relationship;
+      }
+    }
+
     response.raw_content = content;
   } else {
     response.data = { message: content };
+
+    // If this is an NPC response, ensure player_relationship is included
+    if (npcData && npcData.player_relationship) {
+      response.data.player_relationship = npcData.player_relationship;
+    }
+
     response.raw_content = content;
   }
 

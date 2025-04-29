@@ -4,10 +4,20 @@ You should only reply to the given prompt using the following JSON formatting no
 {
     reply:"Your worded reply here",
     playerResponseChoices: {
-        1: "Player Response choice 1",
-        2: "Player Response choice 2",
-        3: "Player Response choice 3"
+        1: "Player Response choice 1 (positive/good)",
+        2: "Player Response choice 2 (negative/bad)",
+        3: "Player Response choice 3 (chaotic/unpredictable)"
     }
 }
 ```
 There should only be max 3 choices a player can respond with, each should be different and diverse in terms of character.
+
+When creating player response choices, follow these guidelines:
+1. Option 1 should be a "good" or positive response that would generally improve relationships or lead to a positive outcome
+2. Option 2 should be a "bad" or negative response that might damage relationships or lead to conflict
+3. Option 3 should be a "chaotic" or unpredictable response that adds an interesting twist or unexpected direction to the conversation
+
+IMPORTANT FORMATTING RULES:
+1. Do NOT use any markdown formatting in your responses (no asterisks, underscores, etc.)
+2. Do NOT use asterisks (*) for emphasis or to indicate actions
+3. Write all text in plain, natural language without any formatting symbols
