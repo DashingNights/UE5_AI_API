@@ -19,6 +19,27 @@ router.post('/', (req, res) => {
   logger.section('SINGLE NPC INITIALIZATION', requestId);
   logger.info(`Initializing NPC: ${npcData.name || 'Unknown'}`, requestId);
 
+  // Log complete request information
+  logger.info(`Complete request headers: ${JSON.stringify(req.headers)}`, requestId);
+  logger.info(`Request method: ${req.method}`, requestId);
+  logger.info(`Request URL: ${req.url}`, requestId);
+  logger.info(`Request query parameters: ${JSON.stringify(req.query)}`, requestId);
+  logger.info(`Request content type: ${req.get('Content-Type')}`, requestId);
+
+  // Log raw body data exactly as received
+  logger.info(`Raw request body: ${JSON.stringify(req.body, null, 2)}`, requestId);
+
+  // Log all properties and their types
+  const propertyTypes = {};
+  for (const key in npcData) {
+    propertyTypes[key] = {
+      type: typeof npcData[key],
+      isArray: Array.isArray(npcData[key]),
+      value: npcData[key]
+    };
+  }
+  logger.info(`NPC data property types: ${JSON.stringify(propertyTypes, null, 2)}`, requestId);
+
   if (!npcData || !npcData.name) {
     logger.error('Invalid NPC data: Missing name', requestId);
     logger.sectionEnd();
@@ -26,6 +47,66 @@ router.post('/', (req, res) => {
       status: 'error',
       message: 'Please provide valid NPC data with at least a name'
     });
+  }
+
+  // Log the raw data for debugging
+  logger.info(`Raw NPC data: ${JSON.stringify(npcData)}`, requestId);
+
+  // Log relationships data specifically with extra detail
+  if (npcData.relationships) {
+    logger.info(`Raw relationships data: ${JSON.stringify(npcData.relationships)}`, requestId);
+    logger.info(`Relationships data type: ${typeof npcData.relationships}`, requestId);
+    logger.info(`Relationships instanceof Map: ${npcData.relationships instanceof Map}`, requestId);
+    logger.info(`Relationships constructor name: ${npcData.relationships.constructor ? npcData.relationships.constructor.name : 'unknown'}`, requestId);
+
+    if (typeof npcData.relationships === 'object') {
+      logger.info(`Relationships keys: ${JSON.stringify(Object.keys(npcData.relationships))}`, requestId);
+
+      // Check if it's the new format with type and value properties
+      if (npcData.relationships.type === 'object' &&
+          npcData.relationships.value &&
+          typeof npcData.relationships.value === 'object') {
+
+        logger.info(`Detected new relationship format with value object: ${JSON.stringify(npcData.relationships.value)}`, requestId);
+
+        // Log the value object in detail
+        Object.entries(npcData.relationships.value).forEach(([name, status], index) => {
+          logger.info(`Relationship value entry ${index} - Name: ${name}, Status: ${status}`, requestId);
+        });
+      }
+
+      // Log each relationship entry in detail
+      Object.entries(npcData.relationships).forEach(([key, value], index) => {
+        logger.info(`Relationship entry ${index} - Key: ${key}, Type: ${typeof value}, Value: ${JSON.stringify(value)}`, requestId);
+
+        if (typeof value === 'object' && value !== null) {
+          logger.info(`Relationship entry ${index} object keys: ${JSON.stringify(Object.keys(value))}`, requestId);
+        }
+      });
+    }
+  }
+
+  // Also check for relationship field (singular)
+  if (npcData.relationship) {
+    logger.info(`Raw relationship (singular) data: ${JSON.stringify(npcData.relationship)}`, requestId);
+    logger.info(`Relationship (singular) data type: ${typeof npcData.relationship}`, requestId);
+
+    // Check if it's the new format with type and value properties
+    if (typeof npcData.relationship === 'object' && npcData.relationship !== null) {
+      logger.info(`Relationship (singular) is an object: ${JSON.stringify(npcData.relationship)}`, requestId);
+
+      if (npcData.relationship.type === 'object' &&
+          npcData.relationship.value &&
+          typeof npcData.relationship.value === 'object') {
+
+        logger.info(`Detected new relationship (singular) format with value object: ${JSON.stringify(npcData.relationship.value)}`, requestId);
+
+        // Log the value object in detail
+        Object.entries(npcData.relationship.value).forEach(([name, status], index) => {
+          logger.info(`Relationship (singular) value entry ${index} - Name: ${name}, Status: ${status}`, requestId);
+        });
+      }
+    }
   }
 
   try {
@@ -515,15 +596,36 @@ router.post('/:npcIdOrName/chat', async (req, res) => {
 
     // Log relationship information for debugging
     logger.info(`NPC ${npcMetadata.name} relationships:`, requestId);
-    if (npcMetadata.relationships && Object.keys(npcMetadata.relationships).length > 0) {
-      logger.info(`Direct relationships defined in metadata: ${JSON.stringify(npcMetadata.relationships)}`, requestId);
+
+    // Log detailed information about the NPC's metadata
+    logger.info(`Complete NPC metadata: ${JSON.stringify(npcMetadata, null, 2)}`, requestId);
+    logger.info(`NPC metadata keys: ${JSON.stringify(Object.keys(npcMetadata))}`, requestId);
+
+    // Log detailed information about relationships
+    if (npcMetadata.relationships) {
+      logger.info(`Relationships object type: ${typeof npcMetadata.relationships}`, requestId);
+      logger.info(`Relationships is array: ${Array.isArray(npcMetadata.relationships)}`, requestId);
+      logger.info(`Relationships object keys: ${JSON.stringify(Object.keys(npcMetadata.relationships))}`, requestId);
+      logger.info(`Direct relationships defined in metadata: ${JSON.stringify(npcMetadata.relationships, null, 2)}`, requestId);
+
+      // Log each relationship entry in detail
+      Object.entries(npcMetadata.relationships).forEach(([key, value], index) => {
+        logger.info(`Relationship entry ${index} - Key: ${key}, Type: ${typeof value}, Value: ${JSON.stringify(value)}`, requestId);
+      });
     } else {
-      logger.info(`No direct relationships defined in metadata`, requestId);
+      logger.info(`No relationships object found in metadata`, requestId);
+    }
+
+    // Log original relationship field if it exists
+    if (npcMetadata.relationship) {
+      logger.info(`Original relationship field (singular): ${npcMetadata.relationship}`, requestId);
+      logger.info(`Original relationship field type: ${typeof npcMetadata.relationship}`, requestId);
     }
 
     if (relationshipNetwork) {
       logger.info(`Discovered direct relationships: ${relationshipNetwork.direct_relationships.length}`, requestId);
       logger.info(`Discovered indirect relationships: ${relationshipNetwork.indirect_relationships.length}`, requestId);
+      logger.info(`Complete relationship network: ${JSON.stringify(relationshipNetwork, null, 2)}`, requestId);
     } else {
       logger.info(`No relationship network discovered`, requestId);
     }

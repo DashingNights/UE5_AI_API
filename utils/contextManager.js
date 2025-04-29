@@ -75,15 +75,179 @@ function initializeNpc(npcData, requestId = Date.now().toString()) {
   // Log all fields for debugging
   logger.info(`NPC ${enhancedData.name} initialization - all fields: ${JSON.stringify(Object.keys(enhancedData))}`);
 
-  // Check for malformed relationship field (singular)
-  if (enhancedData.relationship && typeof enhancedData.relationship === 'string') {
-    logger.warn(`NPC ${enhancedData.name} has 'relationship' field (singular): ${enhancedData.relationship}`);
+  // Check for relationship field (singular)
+  if (enhancedData.relationship) {
+    // Handle different types of relationship data
+    if (typeof enhancedData.relationship === 'object' && enhancedData.relationship !== null) {
+      logger.info(`NPC ${enhancedData.name} has 'relationship' field as an object: ${JSON.stringify(enhancedData.relationship)}`);
 
-    try {
-      // Try different parsing strategies
+      // Check if it's the new format with type and value properties
+      if (enhancedData.relationship.type === 'object' &&
+          enhancedData.relationship.value &&
+          typeof enhancedData.relationship.value === 'object') {
+
+        logger.info(`Detected new relationship format with value object: ${JSON.stringify(enhancedData.relationship.value)}`);
+
+        // Extract relationships from the value object
+        Object.entries(enhancedData.relationship.value).forEach(([name, status]) => {
+          if (name && status) {
+            enhancedData.relationships[name] = status;
+            logger.info(`Extracted relationship from value object: ${name} -> ${status}`);
+          }
+        });
+      } else {
+        // Handle direct object format (without type/value wrapper)
+        logger.info(`Relationship appears to be a direct object, trying to extract relationships`);
+
+        Object.entries(enhancedData.relationship).forEach(([key, value]) => {
+          // Skip metadata properties
+          if (key !== 'type' && key !== 'isArray') {
+            if (typeof value === 'string') {
+              enhancedData.relationships[key] = value;
+              logger.info(`Extracted direct object relationship: ${key} -> ${value}`);
+            } else if (typeof value === 'object' && value !== null) {
+              // Handle nested objects
+              Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                if (typeof nestedValue === 'string') {
+                  enhancedData.relationships[nestedKey] = nestedValue;
+                  logger.info(`Extracted nested relationship: ${nestedKey} -> ${nestedValue}`);
+                }
+              });
+            }
+          }
+        });
+      }
+    } else if (typeof enhancedData.relationship === 'string') {
+      logger.warn(`NPC ${enhancedData.name} has 'relationship' field (singular) as string: ${enhancedData.relationship}`);
+
+      try {
+      // Enhanced handling for complex relationship strings:
+      // Handles formats like:
+      // "Girlfriend\": \"Respectful\",\"Alfred\": \"Hates"
+      // "A:a","B,b" (where commas can appear within values)
+      if (enhancedData.relationship.includes('\\\"')) {
+        logger.info(`Detected relationship string with escaped quotes: ${enhancedData.relationship}`);
+
+        // First, clean up the string by removing escaped quotes
+        const cleanStr = enhancedData.relationship.replace(/\\"/g, '"').replace(/\\/g, '');
+        logger.info(`Cleaned relationship string: ${cleanStr}`);
+
+        // Use a more sophisticated approach to extract key-value pairs
+        // This regex looks for patterns like "key":"value" or "key": "value"
+        // and handles cases where values might contain commas
+        try {
+          // Method 1: Use regex to find all "key":"value" patterns
+          const relationshipRegex = /"([^"]+)":\s*"([^"]*)"/g;
+          let match;
+          let foundAny = false;
+
+          while ((match = relationshipRegex.exec(cleanStr)) !== null) {
+            foundAny = true;
+            const name = match[1].trim();
+            const status = match[2].trim();
+
+            if (name && status) {
+              logger.info(`Successfully extracted relationship using regex: ${name} -> ${status}`);
+              enhancedData.relationships[name] = status;
+            }
+          }
+
+          // If regex didn't find anything, try alternative methods
+          if (!foundAny) {
+            logger.info(`Regex didn't find any relationships, trying alternative methods`);
+
+            // Method 2: Try to reconstruct the string as valid JSON and parse it
+            try {
+              // Add curly braces to make it a valid JSON object
+              const jsonStr = `{${cleanStr}}`;
+              logger.info(`Attempting to parse as JSON: ${jsonStr}`);
+
+              const jsonObj = JSON.parse(jsonStr);
+
+              // Extract relationships from the parsed JSON
+              Object.entries(jsonObj).forEach(([name, status]) => {
+                if (name && status) {
+                  logger.info(`Extracted relationship from JSON: ${name} -> ${status}`);
+                  enhancedData.relationships[name] = status;
+                }
+              });
+            } catch (jsonError) {
+              logger.warn(`Failed to parse as JSON: ${jsonError.message}`);
+
+              // Method 3: Split by comma but be smarter about it
+              // This is a fallback method that tries to handle simple cases
+              if (cleanStr.includes(',')) {
+                logger.info(`Trying comma-based splitting as fallback`);
+
+                // Look for patterns that might indicate relationship boundaries
+                // This is a heuristic approach that works for simple cases
+                const parts = [];
+                let currentPart = '';
+                let inQuotes = false;
+
+                // Manually parse the string character by character
+                for (let i = 0; i < cleanStr.length; i++) {
+                  const char = cleanStr[i];
+
+                  if (char === '"') {
+                    inQuotes = !inQuotes;
+                    currentPart += char;
+                  } else if (char === ',' && !inQuotes) {
+                    // Only split on commas that are not inside quotes
+                    parts.push(currentPart);
+                    currentPart = '';
+                  } else {
+                    currentPart += char;
+                  }
+                }
+
+                // Add the last part
+                if (currentPart) {
+                  parts.push(currentPart);
+                }
+
+                logger.info(`Smart split by comma into ${parts.length} parts: ${JSON.stringify(parts)}`);
+
+                // Process each part
+                parts.forEach(part => {
+                  // Try to extract the name and status from each part
+                  const partMatch = part.match(/"([^"]+)":\s*"([^"]+)"/);
+
+                  if (partMatch && partMatch.length >= 3) {
+                    const name = partMatch[1].trim();
+                    const status = partMatch[2].trim();
+
+                    if (name && status) {
+                      logger.info(`Extracted relationship from smart-split part: ${name} -> ${status}`);
+                      enhancedData.relationships[name] = status;
+                    }
+                  } else {
+                    // If the regex didn't work, try a simpler approach
+                    const subParts = part.split(/[":\\]+/).filter(p => p.trim().length > 0);
+                    logger.info(`Split part into sub-parts: ${JSON.stringify(subParts)}`);
+
+                    if (subParts.length >= 2) {
+                      const name = subParts[0].trim();
+                      const status = subParts[1].trim();
+
+                      if (name && status) {
+                        logger.info(`Extracted relationship using simple split: ${name} -> ${status}`);
+                        enhancedData.relationships[name] = status;
+                      }
+                    }
+                  }
+                });
+              }
+            }
+          }
+        } catch (error) {
+          logger.error(`Error parsing relationship string: ${error.message}`);
+        }
+      }
 
       // Strategy 1: Check if it's a JSON-like string with escaped quotes
-      if (enhancedData.relationship.includes('\\\"') || enhancedData.relationship.includes('\\"')) {
+      if (Object.keys(enhancedData.relationships).length === 0 &&
+          (enhancedData.relationship.includes('\\\"') || enhancedData.relationship.includes('\\"'))) {
         logger.info(`Trying to parse JSON-like relationship string with escaped quotes`);
 
         // Replace escaped quotes and try to extract name-value pairs
@@ -131,11 +295,14 @@ function initializeNpc(npcData, requestId = Date.now().toString()) {
     } catch (error) {
       logger.error(`Failed to parse relationship string: ${error.message}`);
     }
-  }
+  }}
 
   // Process relationships object if it exists
   if (typeof enhancedData.relationships === 'object') {
     logger.info(`Processing relationships object: ${JSON.stringify(enhancedData.relationships)}`);
+    logger.info(`Relationships object type: ${typeof enhancedData.relationships}`);
+    logger.info(`Relationships object keys: ${JSON.stringify(Object.keys(enhancedData.relationships))}`);
+    logger.info(`Relationships object constructor: ${enhancedData.relationships.constructor ? enhancedData.relationships.constructor.name : 'unknown'}`);
 
     // If it's an array, try to convert to object
     if (Array.isArray(enhancedData.relationships)) {
@@ -161,6 +328,100 @@ function initializeNpc(npcData, requestId = Date.now().toString()) {
 
       enhancedData.relationships = relationshipObj;
     }
+    // Check if it's a Map-like object with numeric keys (from UI)
+    else if (Object.keys(enhancedData.relationships).some(key => !isNaN(parseInt(key)))) {
+      logger.info(`NPC ${enhancedData.name} has relationships as a Map with numeric keys, converting to proper format`);
+      const relationshipObj = {};
+
+      // Log the structure for debugging
+      logger.info(`Relationships structure: ${JSON.stringify(enhancedData.relationships)}`);
+
+      // Process each entry in the Map
+      Object.entries(enhancedData.relationships).forEach(([key, value]) => {
+        logger.info(`Processing Map entry - Key: ${key}, Type: ${typeof value}, Value: ${JSON.stringify(value)}`);
+
+        // Each entry might be a key-value pair where value contains the NPC name and relationship status
+        if (typeof value === 'object' && value !== null) {
+          // Extract the NPC name and relationship status
+          const entries = Object.entries(value);
+          logger.info(`Object entry keys: ${JSON.stringify(entries.map(e => e[0]))}`);
+
+          if (entries.length > 0) {
+            const [npcName, relationshipStatus] = entries[0];
+            if (npcName && relationshipStatus) {
+              relationshipObj[npcName] = relationshipStatus;
+              logger.info(`Extracted relationship from Map: ${npcName} -> ${relationshipStatus}`);
+            }
+          }
+        }
+      });
+
+      // Special handling for UI format where relationships are stored as key-value pairs in a Map
+      // This is the format used in the screenshot where Blacksmith has relationships with Girlfriend and Alfred
+      if (Object.keys(relationshipObj).length === 0) {
+        logger.info(`Trying alternative Map format parsing for relationships`);
+
+        // The format might be { "0": { "Girlfriend": "Respectful" }, "1": { "Alfred": "Hates" } }
+        // Or it might be { "Girlfriend": "Respectful", "Alfred": "Hates" }
+        Object.entries(enhancedData.relationships).forEach(([key, value]) => {
+          if (typeof value === 'string') {
+            // Format: { "Girlfriend": "Respectful", "Alfred": "Hates" }
+            relationshipObj[key] = value;
+            logger.info(`Extracted direct key-value relationship: ${key} -> ${value}`);
+          } else if (typeof value === 'object' && value !== null) {
+            // Format: { "0": { "Girlfriend": "Respectful" }, "1": { "Alfred": "Hates" } }
+            Object.entries(value).forEach(([npcName, relationshipStatus]) => {
+              relationshipObj[npcName] = relationshipStatus;
+              logger.info(`Extracted nested relationship: ${npcName} -> ${relationshipStatus}`);
+            });
+          }
+        });
+      }
+
+      // Special handling for the specific format seen in the screenshot
+      // Format: { "0": { "Girlfriend": "Respectful" }, "1": { "Alfred": "Hates" } }
+      if (Object.keys(relationshipObj).length === 0) {
+        logger.info(`Trying UI-specific Map format parsing for relationships`);
+
+        // Check if we have numeric keys that contain objects
+        const numericKeys = Object.keys(enhancedData.relationships).filter(key => !isNaN(parseInt(key)));
+
+        if (numericKeys.length > 0) {
+          numericKeys.forEach(key => {
+            const entry = enhancedData.relationships[key];
+
+            if (typeof entry === 'object' && entry !== null) {
+              // Log the entry structure
+              logger.info(`Map entry ${key} structure: ${JSON.stringify(entry)}`);
+
+              // Try to extract the relationship
+              if (Object.keys(entry).length === 1) {
+                // Format: { "0": { "Girlfriend": "Respectful" } }
+                const npcName = Object.keys(entry)[0];
+                const relationshipStatus = entry[npcName];
+
+                if (npcName && relationshipStatus) {
+                  relationshipObj[npcName] = relationshipStatus;
+                  logger.info(`Extracted UI-specific relationship: ${npcName} -> ${relationshipStatus}`);
+                }
+              }
+            }
+          });
+        }
+      }
+
+      // If we found any relationships, update the enhancedData
+      if (Object.keys(relationshipObj).length > 0) {
+        enhancedData.relationships = relationshipObj;
+        logger.info(`Converted relationships from Map: ${JSON.stringify(relationshipObj)}`);
+      }
+    }
+    // Handle direct key-value pairs in the relationships object
+    else {
+      // The relationships object might already be in the correct format
+      // Just log it for debugging
+      logger.info(`NPC ${enhancedData.name} has relationships in standard format: ${JSON.stringify(enhancedData.relationships)}`);
+    }
   }
 
   // MANUAL RELATIONSHIP SETUP FOR TESTING
@@ -177,57 +438,180 @@ function initializeNpc(npcData, requestId = Date.now().toString()) {
     }
   }
 
+  // Merge any remaining relationship field (singular) into relationships object (plural)
+  // This ensures we capture all relationships, whether they come from the singular or plural field
+  if (enhancedData.relationship && typeof enhancedData.relationship === 'string' &&
+      !enhancedData.relationship.includes('\\\"')) {
+    // Only process if we haven't already processed this as an Unreal Engine format
+    logger.info(`Checking for additional relationships in 'relationship' field: ${enhancedData.relationship}`);
+
+    try {
+      // Try to parse as JSON
+      if (enhancedData.relationship.startsWith('{') && enhancedData.relationship.endsWith('}')) {
+        try {
+          const relationshipObj = JSON.parse(enhancedData.relationship);
+          if (typeof relationshipObj === 'object' && relationshipObj !== null) {
+            Object.entries(relationshipObj).forEach(([name, status]) => {
+              if (!enhancedData.relationships[name]) {
+                enhancedData.relationships[name] = status;
+                logger.info(`Added relationship from JSON string: ${name} -> ${status}`);
+              }
+            });
+          }
+        } catch (e) {
+          logger.warn(`Failed to parse relationship as JSON: ${e.message}`);
+        }
+      }
+    } catch (error) {
+      logger.warn(`Error processing additional relationships: ${error.message}`);
+    }
+  }
+
   // Log the final relationships
   logger.info(`NPC ${enhancedData.name} final relationships: ${JSON.stringify(enhancedData.relationships)}`);
 
   // Special handling for Unreal Engine format
   // Check if we have a relationship field that looks like "Alfred\": \"Standoffish"
   if (enhancedData.relationship && typeof enhancedData.relationship === 'string' &&
-      enhancedData.relationship.includes('\\\"') && Object.keys(enhancedData.relationships).length === 0) {
+      enhancedData.relationship.includes('\\\"')) {
 
     logger.info(`Detected Unreal Engine relationship format: ${enhancedData.relationship}`);
 
     try {
-      // This is a special case for Unreal Engine's string format
-      // The format is typically like: "Name\": \"Status"
-
       // First, clean up the string by removing escaped quotes
       const cleanStr = enhancedData.relationship.replace(/\\"/g, '"').replace(/\\/g, '');
       logger.info(`Cleaned relationship string: ${cleanStr}`);
 
-      // Try to extract the name and status
-      // The pattern is usually "Name": "Status"
-      const match = cleanStr.match(/"([^"]+)":\s*"([^"]+)"/);
+      // Use a more sophisticated approach to extract key-value pairs
+      // This regex looks for patterns like "key":"value" or "key": "value"
+      // and handles cases where values might contain commas
+      try {
+        // Method 1: Use regex to find all "key":"value" patterns
+        const relationshipRegex = /"([^"]+)":\s*"([^"]*)"/g;
+        let match;
+        let foundAny = false;
 
-      if (match && match.length >= 3) {
-        const name = match[1].trim();
-        const status = match[2].trim();
-
-        if (name && status) {
-          logger.info(`Successfully extracted relationship from Unreal format: ${name} -> ${status}`);
-          enhancedData.relationships[name] = status;
-
-          // Remove the original field to avoid confusion
-          delete enhancedData.relationship;
-        }
-      } else {
-        // If the regex didn't work, try a simpler approach
-        // Split by quotes and colons
-        const parts = cleanStr.split(/[":\\]+/).filter(p => p.trim().length > 0);
-        logger.info(`Split relationship parts: ${JSON.stringify(parts)}`);
-
-        if (parts.length >= 2) {
-          const name = parts[0].trim();
-          const status = parts[1].trim();
+        while ((match = relationshipRegex.exec(cleanStr)) !== null) {
+          foundAny = true;
+          const name = match[1].trim();
+          const status = match[2].trim();
 
           if (name && status) {
-            logger.info(`Extracted relationship using simple split: ${name} -> ${status}`);
+            logger.info(`Successfully extracted relationship using regex: ${name} -> ${status}`);
             enhancedData.relationships[name] = status;
-
-            // Remove the original field to avoid confusion
-            delete enhancedData.relationship;
           }
         }
+
+        // If regex didn't find anything, try alternative methods
+        if (!foundAny) {
+          logger.info(`Regex didn't find any relationships, trying alternative methods`);
+
+          // Method 2: Try to reconstruct the string as valid JSON and parse it
+          try {
+            // Add curly braces to make it a valid JSON object
+            const jsonStr = `{${cleanStr}}`;
+            logger.info(`Attempting to parse as JSON: ${jsonStr}`);
+
+            const jsonObj = JSON.parse(jsonStr);
+
+            // Extract relationships from the parsed JSON
+            Object.entries(jsonObj).forEach(([name, status]) => {
+              if (name && status) {
+                logger.info(`Extracted relationship from JSON: ${name} -> ${status}`);
+                enhancedData.relationships[name] = status;
+              }
+            });
+          } catch (jsonError) {
+            logger.warn(`Failed to parse as JSON: ${jsonError.message}`);
+
+            // Method 3: Split by comma but be smarter about it
+            // This is a fallback method that tries to handle simple cases
+            if (cleanStr.includes(',')) {
+              logger.info(`Trying comma-based splitting as fallback`);
+
+              // Look for patterns that might indicate relationship boundaries
+              // This is a heuristic approach that works for simple cases
+              const parts = [];
+              let currentPart = '';
+              let inQuotes = false;
+
+              // Manually parse the string character by character
+              for (let i = 0; i < cleanStr.length; i++) {
+                const char = cleanStr[i];
+
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                  currentPart += char;
+                } else if (char === ',' && !inQuotes) {
+                  // Only split on commas that are not inside quotes
+                  parts.push(currentPart);
+                  currentPart = '';
+                } else {
+                  currentPart += char;
+                }
+              }
+
+              // Add the last part
+              if (currentPart) {
+                parts.push(currentPart);
+              }
+
+              logger.info(`Smart split by comma into ${parts.length} parts: ${JSON.stringify(parts)}`);
+
+              // Process each part
+              parts.forEach(part => {
+                // Try to extract the name and status from each part
+                const partMatch = part.match(/"([^"]+)":\s*"([^"]+)"/);
+
+                if (partMatch && partMatch.length >= 3) {
+                  const name = partMatch[1].trim();
+                  const status = partMatch[2].trim();
+
+                  if (name && status) {
+                    logger.info(`Extracted relationship from smart-split part: ${name} -> ${status}`);
+                    enhancedData.relationships[name] = status;
+                  }
+                } else {
+                  // If the regex didn't work, try a simpler approach
+                  const subParts = part.split(/[":\\]+/).filter(p => p.trim().length > 0);
+                  logger.info(`Split part into sub-parts: ${JSON.stringify(subParts)}`);
+
+                  if (subParts.length >= 2) {
+                    const name = subParts[0].trim();
+                    const status = subParts[1].trim();
+
+                    if (name && status) {
+                      logger.info(`Extracted relationship using simple split: ${name} -> ${status}`);
+                      enhancedData.relationships[name] = status;
+                    }
+                  }
+                }
+              });
+            } else {
+              // Method 4: Simple string splitting for single relationships
+              // This is a fallback for the simplest case
+              const parts = cleanStr.split(/[":\\]+/).filter(p => p.trim().length > 0);
+              logger.info(`Split relationship parts: ${JSON.stringify(parts)}`);
+
+              if (parts.length >= 2) {
+                const name = parts[0].trim();
+                const status = parts[1].trim();
+
+                if (name && status) {
+                  logger.info(`Extracted relationship using simple split: ${name} -> ${status}`);
+                  enhancedData.relationships[name] = status;
+                }
+              }
+            }
+          }
+        }
+
+        // Remove the original field to avoid confusion
+        if (Object.keys(enhancedData.relationships).length > 0) {
+          delete enhancedData.relationship;
+        }
+      } catch (error) {
+        logger.error(`Error parsing relationship string: ${error.message}`);
       }
     } catch (error) {
       logger.error(`Failed to parse Unreal Engine relationship format: ${error.message}`);
@@ -523,9 +907,10 @@ function findNpcByName(name) {
  * Get relationship between two NPCs (supports both IDs and names)
  * @param {string} npcId1OrName - First NPC ID or name
  * @param {string} npcId2OrName - Second NPC ID or name
+ * @param {boolean} [includeFutureRelationships=true] - Whether to include relationships with NPCs that don't exist yet
  * @returns {Object} - Relationship information
  */
-function getNpcRelationship(npcId1OrName, npcId2OrName) {
+function getNpcRelationship(npcId1OrName, npcId2OrName, includeFutureRelationships = true) {
   // Try to get NPCs by ID first
   let npc1 = getNpcMetadata(npcId1OrName);
   let npc2 = getNpcMetadata(npcId2OrName);
@@ -545,16 +930,50 @@ function getNpcRelationship(npcId1OrName, npcId2OrName) {
     }
   }
 
-  // If either NPC is still not found, return error
+  // Handle case where one or both NPCs don't exist yet
   if (!npc1 || !npc2) {
-    return {
-      status: "unknown",
-      error: "One or both NPCs not found",
-      npc1_found: !!npc1,
-      npc2_found: !!npc2,
-      npc1_identifier: npcId1OrName,
-      npc2_identifier: npcId2OrName
-    };
+    // If we're not including future relationships, return error
+    if (!includeFutureRelationships) {
+      return {
+        status: "unknown",
+        error: "One or both NPCs not found",
+        npc1_found: !!npc1,
+        npc2_found: !!npc2,
+        npc1_identifier: npcId1OrName,
+        npc2_identifier: npcId2OrName
+      };
+    }
+
+    // Create placeholder data for missing NPCs
+    if (!npc1) {
+      // Use the name as identifier if it's a string, otherwise use the ID
+      const npc1Name = typeof npcId1OrName === 'string' && !npcId1OrName.includes('-') ?
+                       npcId1OrName : `Unknown NPC (${npcId1OrName})`;
+
+      npc1 = {
+        id: null,
+        name: npc1Name,
+        relationships: {},
+        is_placeholder: true
+      };
+
+      logger.info(`Created placeholder for non-existent NPC: ${npc1Name}`);
+    }
+
+    if (!npc2) {
+      // Use the name as identifier if it's a string, otherwise use the ID
+      const npc2Name = typeof npcId2OrName === 'string' && !npcId2OrName.includes('-') ?
+                       npcId2OrName : `Unknown NPC (${npcId2OrName})`;
+
+      npc2 = {
+        id: null,
+        name: npc2Name,
+        relationships: {},
+        is_placeholder: true
+      };
+
+      logger.info(`Created placeholder for non-existent NPC: ${npc2Name}`);
+    }
   }
 
   // Check for relationships with exact name match
@@ -590,7 +1009,10 @@ function getNpcRelationship(npcId1OrName, npcId2OrName) {
     npc1_to_npc2: relationFromNpc1 || "none",
     npc2_to_npc1: relationFromNpc2 || "none",
     is_mutual: relationFromNpc1 === relationFromNpc2 && relationFromNpc1 !== undefined,
-    is_conflicting: relationFromNpc1 !== relationFromNpc2 && relationFromNpc1 !== undefined && relationFromNpc2 !== undefined
+    is_conflicting: relationFromNpc1 !== relationFromNpc2 && relationFromNpc1 !== undefined && relationFromNpc2 !== undefined,
+    npc1_exists: !npc1.is_placeholder,
+    npc2_exists: !npc2.is_placeholder,
+    is_future_relationship: npc1.is_placeholder || npc2.is_placeholder
   };
 }
 
@@ -710,12 +1132,22 @@ function discoverNpcRelationships(npcIdOrName, requestId = Date.now().toString()
     const relationship = getNpcRelationship(npcIdOrName, otherNpcId);
     logger.performance('getNpcRelationship', relationshipStartTime, requestId);
 
-    // Skip if there's an error
+    // Skip if there's an error (but not for future relationships)
     if (relationship.error) {
       logger.functionStep('discoverNpcRelationships', 'Relationship error, skipping', {
         error: relationship.error
       }, requestId);
       continue;
+    }
+
+    // Log if this is a future relationship (with a non-existent NPC)
+    if (relationship.is_future_relationship) {
+      logger.functionStep('discoverNpcRelationships', 'Future relationship detected', {
+        npc1_name: relationship.npc1_name,
+        npc2_name: relationship.npc2_name,
+        npc1_exists: relationship.npc1_exists,
+        npc2_exists: relationship.npc2_exists
+      }, requestId);
     }
 
     logger.functionStep('discoverNpcRelationships', 'Relationship found', {
@@ -897,6 +1329,7 @@ function getNpcRelationshipNetwork(npcIdOrName, requestId = Date.now().toString(
   // Format the relationships for context
   const directRelationships = [];
   const indirectRelationships = [];
+  const futureRelationships = [];
 
   // Track processing time for each relationship
   const relationshipProcessingStart = Date.now();
@@ -932,20 +1365,37 @@ function getNpcRelationshipNetwork(npcIdOrName, requestId = Date.now().toString(
       currentState: relatedNpcMetadata?.currentState || ''
     };
 
+    // Check if this is a future relationship (with a non-existent NPC)
+    const isFutureRelationship = !relatedNpcMetadata;
+
     // Process direct relationships
     if (rel.direct_relationship) {
       logger.functionStep('getNpcRelationshipNetwork', `Adding direct relationship with ${rel.npc_name}`,
-        rel.direct_relationship,
+        {
+          ...rel.direct_relationship,
+          is_future: isFutureRelationship
+        },
         requestId
       );
 
-      directRelationships.push({
+      const relationshipData = {
         ...npcContext,
         target_to_other: rel.direct_relationship.target_to_other,
         other_to_target: rel.direct_relationship.other_to_target,
         is_mutual: rel.direct_relationship.is_mutual,
-        is_conflicting: rel.direct_relationship.is_conflicting
-      });
+        is_conflicting: rel.direct_relationship.is_conflicting,
+        is_future: isFutureRelationship
+      };
+
+      if (isFutureRelationship) {
+        // For future relationships, add to futureRelationships array
+        futureRelationships.push(relationshipData);
+        logger.functionStep('getNpcRelationshipNetwork', `Added future relationship with ${rel.npc_name}`,
+          { relationship_type: 'direct' }, requestId);
+      } else {
+        // For existing NPCs, add to directRelationships array
+        directRelationships.push(relationshipData);
+      }
     }
     // Process indirect relationships
     else if (rel.indirect_relationships) {
@@ -1012,7 +1462,8 @@ function getNpcRelationshipNetwork(npcIdOrName, requestId = Date.now().toString(
   // Create the final network object
   const relationshipNetwork = {
     direct_relationships: directRelationships,
-    indirect_relationships: indirectRelationships
+    indirect_relationships: indirectRelationships,
+    future_relationships: futureRelationships
   };
 
   // Log detailed statistics
@@ -1020,7 +1471,8 @@ function getNpcRelationshipNetwork(npcIdOrName, requestId = Date.now().toString(
     {
       direct_count: directRelationships.length,
       indirect_count: indirectRelationships.length,
-      total_count: directRelationships.length + indirectRelationships.length
+      future_count: futureRelationships.length,
+      total_count: directRelationships.length + indirectRelationships.length + futureRelationships.length
     },
     requestId
   );
@@ -1032,7 +1484,9 @@ function getNpcRelationshipNetwork(npcIdOrName, requestId = Date.now().toString(
   logger.performance('getNpcRelationshipNetwork', startTime, requestId);
   logger.functionExit('getNpcRelationshipNetwork', {
     direct_count: directRelationships.length,
-    indirect_count: indirectRelationships.length
+    indirect_count: indirectRelationships.length,
+    future_count: futureRelationships.length,
+    total_count: directRelationships.length + indirectRelationships.length + futureRelationships.length
   }, requestId);
 
   return relationshipNetwork;
@@ -1183,6 +1637,7 @@ function discoverAllNpcRelationships(requestId = Date.now().toString()) {
   // Initialize statistics
   let totalDirectRelationships = 0;
   let totalIndirectRelationships = 0;
+  let totalFutureRelationships = 0;
   let totalMutualRelationships = 0;
   let totalConflictingRelationships = 0;
   let successfulDiscoveries = 0;
@@ -1239,9 +1694,14 @@ function discoverAllNpcRelationships(requestId = Date.now().toString()) {
 
     successfulDiscoveries++;
 
+    // Get relationship network to count future relationships
+    const relationshipNetwork = getNpcRelationshipNetwork(npcId, npcRequestId);
+    const futureRelationshipsCount = relationshipNetwork.future_relationships.length;
+
     // Update statistics
     totalDirectRelationships += relationships.stats.direct_relationships;
     totalIndirectRelationships += relationships.stats.indirect_relationships;
+    totalFutureRelationships += futureRelationshipsCount;
     totalMutualRelationships += relationships.stats.mutual_relationships;
     totalConflictingRelationships += relationships.stats.conflicting_relationships;
 
@@ -1250,12 +1710,13 @@ function discoverAllNpcRelationships(requestId = Date.now().toString()) {
       name: npcMetadata.name,
       direct: relationships.stats.direct_relationships,
       indirect: relationships.stats.indirect_relationships,
+      future: futureRelationshipsCount,
       mutual: relationships.stats.mutual_relationships,
       conflicting: relationships.stats.conflicting_relationships,
       processing_time_ms: npcProcessingTime
     };
 
-    logger.info(`Found ${relationships.stats.direct_relationships} direct and ${relationships.stats.indirect_relationships} indirect relationships for ${npcMetadata.name}`, requestId);
+    logger.info(`Found ${relationships.stats.direct_relationships} direct, ${relationships.stats.indirect_relationships} indirect, and ${futureRelationshipsCount} future relationships for ${npcMetadata.name}`, requestId);
 
     // Log progress
     if (i % 5 === 0 || i === allNpcIds.length - 1) {
@@ -1281,6 +1742,7 @@ function discoverAllNpcRelationships(requestId = Date.now().toString()) {
     failed_discoveries: failedDiscoveries,
     total_direct_relationships: totalDirectRelationships,
     total_indirect_relationships: totalIndirectRelationships,
+    total_future_relationships: totalFutureRelationships,
     total_mutual_relationships: totalMutualRelationships,
     total_conflicting_relationships: totalConflictingRelationships,
     total_processing_time_ms: totalProcessingTime,
@@ -1291,7 +1753,7 @@ function discoverAllNpcRelationships(requestId = Date.now().toString()) {
   // Log detailed statistics
   logger.logObject('Detailed relationship discovery statistics', detailedStats, requestId, true);
 
-  logger.info(`Relationship discovery complete. Found ${totalDirectRelationships} direct and ${totalIndirectRelationships} indirect relationships across all NPCs.`, requestId);
+  logger.info(`Relationship discovery complete. Found ${totalDirectRelationships} direct, ${totalIndirectRelationships} indirect, and ${totalFutureRelationships} future relationships across all NPCs.`, requestId);
   logger.sectionEnd();
 
   // Create summary result
@@ -1301,6 +1763,7 @@ function discoverAllNpcRelationships(requestId = Date.now().toString()) {
     failed_discoveries: failedDiscoveries,
     total_direct_relationships: totalDirectRelationships,
     total_indirect_relationships: totalIndirectRelationships,
+    total_future_relationships: totalFutureRelationships,
     total_mutual_relationships: totalMutualRelationships,
     total_conflicting_relationships: totalConflictingRelationships,
     processing_time_ms: totalProcessingTime
